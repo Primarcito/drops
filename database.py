@@ -77,6 +77,15 @@ def init_db():
                 reason TEXT,
                 created_at TEXT NOT NULL
             );
+
+            CREATE INDEX IF NOT EXISTS idx_drops_status_ends_at
+                ON drops (status, ends_at);
+
+            CREATE INDEX IF NOT EXISTS idx_drop_entries_active_joined
+                ON drop_entries (drop_id, active, joined_at);
+
+            CREATE INDEX IF NOT EXISTS idx_drop_winners_drop
+                ON drop_winners (drop_id, id);
             """
         )
         c = conn.cursor()

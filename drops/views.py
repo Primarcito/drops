@@ -1,24 +1,65 @@
 import math
+import asyncio
+from contextlib import suppress
 
 import discord
 
 import database as db
 import emojis
-from embed_assets import banner_file, image_filename_for_drop, prize_image_filename
+from embed_assets import image_filename_for_drop
 from embeds import build_drop_embed, build_participants_embed
 from permissions import can_manage_drops
 
 
 PARTICIPANTS_PER_PAGE = 10
-BUTTON_NOTICE_DELETE_AFTER = 6
+BUTTON_NOTICE_DELETE_AFTER = 10
+_BUTTON_NOTICE_MESSAGES = {}
+_BUTTON_NOTICE_TASKS = {}
+_PARTICIPANTS_MESSAGES = {}
 
 
-async def send_button_notice(interaction: discord.Interaction, message: str):
-    await interaction.response.send_message(
-        message,
-        ephemeral=True,
-        delete_after=BUTTON_NOTICE_DELETE_AFTER,
-    )
+def notice_key(interaction: discord.Interaction, drop_id: int):
+    return (int(interaction.user.id), int(drop_id))
+
+
+async def delete_button_notice_later(key, message):
+    await asyncio.sleep(BUTTON_NOTICE_DELETE_AFTER)
+    if _BUTTON_NOTICE_MESSAGES.get(key) is not message:
+        return
+    with suppress(discord.HTTPException, discord.NotFound):
+        await message.delete()
+    _BUTTON_NOTICE_MESSAGES.pop(key, None)
+    _BUTTON_NOTICE_TASKS.pop(key, None)
+
+
+def schedule_button_notice_delete(key, message):
+    old_task = _BUTTON_NOTICE_TASKS.pop(key, None)
+    if old_task:
+        old_task.cancel()
+    _BUTTON_NOTICE_TASKS[key] = asyncio.create_task(delete_button_notice_later(key, message))
+
+
+async def send_button_notice(interaction: discord.Interaction, drop_id: int, message: str):
+    key = notice_key(interaction, drop_id)
+    previous = _BUTTON_NOTICE_MESSAGES.get(key)
+    if previous:
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        try:
+            await previous.edit(content=message, embed=None, view=None)
+            schedule_button_notice_delete(key, previous)
+            return
+        except (discord.HTTPException, discord.NotFound):
+            _BUTTON_NOTICE_MESSAGES.pop(key, None)
+
+    if not interaction.response.is_done():
+        await interaction.response.send_message(message, ephemeral=True)
+        notice = await interaction.original_response()
+    else:
+        notice = await interaction.followup.send(message, ephemeral=True, wait=True)
+
+    _BUTTON_NOTICE_MESSAGES[key] = notice
+    schedule_button_notice_delete(key, notice)
 
 
 class DropPublicView(discord.ui.View):
@@ -54,8 +95,8 @@ class JoinDropButton(discord.ui.Button):
             "closed": "Este Drop ya no esta activo.",
         }
 
+        await send_button_notice(interaction, self.drop_id, messages.get(result, "No pude agregarte."))
         await refresh_source_message(interaction, self.drop_id)
-        await send_button_notice(interaction, messages.get(result, "No pude agregarte."))
 
 
 class LeaveDropButton(discord.ui.Button):
@@ -70,9 +111,9 @@ class LeaveDropButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         removed = db.remove_entry(self.drop_id, interaction.user.id, actor_id=interaction.user.id, reason="self_leave")
-        await refresh_source_message(interaction, self.drop_id)
         text = "Saliste del Drop." if removed else "No estabas participando en este Drop."
-        await send_button_notice(interaction, text)
+        await send_button_notice(interaction, self.drop_id, text)
+        await refresh_source_message(interaction, self.drop_id)
 
 
 class ParticipantsButton(discord.ui.Button):
@@ -91,7 +132,23 @@ class ParticipantsButton(discord.ui.Button):
             await interaction.response.send_message("No encontre ese Drop.", ephemeral=True)
             return
         view = ParticipantsView(self.drop_id, page=0, manager=can_manage_drops(interaction))
-        await interaction.response.send_message(embed=view.embed(), view=view, ephemeral=True)
+        key = notice_key(interaction, self.drop_id)
+        previous = _PARTICIPANTS_MESSAGES.get(key)
+        if previous:
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
+            try:
+                await previous.edit(embed=view.embed(), view=view, content=None)
+                return
+            except (discord.HTTPException, discord.NotFound):
+                _PARTICIPANTS_MESSAGES.pop(key, None)
+
+        if not interaction.response.is_done():
+            await interaction.response.send_message(embed=view.embed(), view=view, ephemeral=True)
+            message = await interaction.original_response()
+        else:
+            message = await interaction.followup.send(embed=view.embed(), view=view, ephemeral=True, wait=True)
+        _PARTICIPANTS_MESSAGES[key] = message
 
 
 class ParticipantsView(discord.ui.View):
@@ -267,19 +324,15 @@ async def refresh_source_message(interaction: discord.Interaction, drop_id: int)
     participant_count = db.count_entries(drop_id)
     winners = db.get_winners(drop_id)
     try:
-        file = banner_file("active", drop=drop) if drop["status"] == "active" and not prize_image_filename(drop) else None
-        edit_kwargs = dict(
+        await interaction.message.edit(
             embed=build_drop_embed(
                 drop,
                 participant_count,
                 winners,
-                image_filename=file.filename if file else image_filename_for_drop(drop, winners),
+                image_filename=image_filename_for_drop(drop, winners),
             ),
             view=DropPublicView(drop_id) if drop["status"] == "active" else None,
         )
-        if file:
-            edit_kwargs["attachments"] = [file]
-        await interaction.message.edit(**edit_kwargs)
     except discord.HTTPException:
         pass
 
@@ -293,18 +346,14 @@ async def refresh_public_from_client(client: discord.Client, drop_id: int):
         message = await channel.fetch_message(int(drop["message_id"]))
         participant_count = db.count_entries(drop_id)
         winners = db.get_winners(drop_id)
-        file = banner_file("active", drop=drop) if drop["status"] == "active" and not prize_image_filename(drop) else None
-        edit_kwargs = dict(
+        await message.edit(
             embed=build_drop_embed(
                 drop,
                 participant_count,
                 winners,
-                image_filename=file.filename if file else image_filename_for_drop(drop, winners),
+                image_filename=image_filename_for_drop(drop, winners),
             ),
             view=DropPublicView(drop_id) if drop["status"] == "active" else None,
         )
-        if file:
-            edit_kwargs["attachments"] = [file]
-        await message.edit(**edit_kwargs)
     except (discord.HTTPException, ValueError, TypeError):
         pass
