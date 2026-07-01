@@ -32,14 +32,11 @@ def _schedule_delete(key, message, delay: int | None):
         _EPHEMERAL_DELETE_TASKS[key] = asyncio.create_task(_delete_later(key, message, delay))
 
 
-async def _delete_previous(key, previous):
-    old_task = _EPHEMERAL_DELETE_TASKS.pop(key, None)
-    if old_task:
-        old_task.cancel()
-    _EPHEMERAL_MESSAGES.pop(key, None)
-    if previous:
-        with suppress(discord.HTTPException, discord.NotFound):
-            await previous.delete()
+async def _acknowledge_without_new_message(interaction: discord.Interaction):
+    if interaction.response.is_done():
+        return
+    with suppress(discord.HTTPException, discord.InteractionResponded):
+        await interaction.response.defer(ephemeral=True)
 
 
 async def upsert_ephemeral(
@@ -53,7 +50,15 @@ async def upsert_ephemeral(
 ):
     key = ephemeral_key(interaction, scope)
     previous = _EPHEMERAL_MESSAGES.get(key)
-    await _delete_previous(key, previous)
+
+    if previous:
+        await _acknowledge_without_new_message(interaction)
+        try:
+            await previous.edit(content=content, embed=embed, view=view)
+            _schedule_delete(key, previous, delete_after)
+            return previous
+        except (discord.HTTPException, discord.NotFound):
+            _EPHEMERAL_MESSAGES.pop(key, None)
 
     if not interaction.response.is_done():
         await interaction.response.send_message(content=content, embed=embed, view=view, ephemeral=True)
