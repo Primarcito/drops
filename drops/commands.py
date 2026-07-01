@@ -36,6 +36,13 @@ def active_drop_or_error(drop_id: int):
     return drop, None
 
 
+def normalize_requirements(text: str) -> str:
+    value = (text or "").strip()
+    if value.lower() in {"-", "no", "none", "ninguno", "ninguna", "sin requisitos"}:
+        return ""
+    return value
+
+
 @sorteo_group.command(name="crear", description="Crea un nuevo sorteo en este canal")
 @app_commands.describe(
     premio="Premio del sorteo",
@@ -47,7 +54,7 @@ async def create_drop(
     interaction: discord.Interaction,
     premio: str,
     duracion: str,
-    ganadores: app_commands.Range[int, 1, 25] = 1,
+    ganadores: app_commands.Range[int, 1, 25],
     requisitos: str = "",
 ):
     print(
@@ -77,7 +84,7 @@ async def create_drop(
         premio,
         ganadores,
         ends_at,
-        requisitos,
+        normalize_requirements(requisitos),
     )
     drop = db.get_drop(drop_id)
     file = banner_file("active")

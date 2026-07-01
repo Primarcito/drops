@@ -85,6 +85,7 @@ def init_db():
         if "prize_image_filename" not in drop_cols:
             c.execute("ALTER TABLE drops ADD COLUMN prize_image_filename TEXT")
         conn.commit()
+    print(f"[DROPS] Base de datos lista: {os.path.abspath(DB_PATH)}")
 
 
 def log_action(conn, drop_id: int, action: str, actor_id=None, target_user_id=None, reason=None):

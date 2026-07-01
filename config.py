@@ -20,7 +20,7 @@ def parse_id_list(value: str) -> list[int]:
 
 GUILD_IDS = parse_id_list(os.getenv("GUILD_IDS") or os.getenv("GUILD_ID", ""))
 
-DATA_DIR = os.getenv("DATA_DIR") or os.getenv("RAILWAY_VOLUME_MOUNT_PATH") or "."
+DATA_DIR = os.getenv("DATA_DIR") or os.getenv("RAILWAY_VOLUME_MOUNT_PATH") or "data"
 DB_PATH = os.path.join(DATA_DIR, "drops.db")
 
 COLOR_PANEL = 0x2F80ED
