@@ -6,7 +6,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import database as db
-from config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID
+from config import APPLICATION_ID, DISCORD_TOKEN, GUILD_IDS
 from drops.commands import sorteo_group
 from drops.scheduler import drop_watch_loop
 from drops.views import DropPublicView
@@ -53,15 +53,20 @@ async def on_ready():
         bot.add_view(DropPublicView(int(drop["id"])))
 
     if not COMMANDS_SYNCED:
-        if GUILD_ID:
-            guild = discord.Object(id=GUILD_ID)
-            bot.tree.add_command(sorteo_group, guild=guild)
-            synced = await bot.tree.sync(guild=guild)
+        if GUILD_IDS:
+            synced_by_guild = {}
+            for guild_id in GUILD_IDS:
+                guild = discord.Object(id=guild_id)
+                bot.tree.clear_commands(guild=guild)
+                bot.tree.add_command(sorteo_group, guild=guild)
+                synced = await bot.tree.sync(guild=guild)
+                synced_by_guild[guild_id] = [command.name for command in synced]
+
             bot.tree.clear_commands(guild=None)
             global_synced = await bot.tree.sync()
             print(
                 "[DROPS] Comandos de servidor sincronizados: "
-                f"{[command.name for command in synced]} | Globales limpiados: {len(global_synced)}"
+                f"{synced_by_guild} | Globales limpiados: {len(global_synced)}"
             )
         else:
             bot.tree.add_command(sorteo_group)

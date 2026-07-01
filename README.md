@@ -31,7 +31,8 @@ Variables recomendadas:
 
 - `TOKEN` o `DISCORD_TOKEN`: token del bot de Discord.
 - `APPLICATION_ID`: ID de la aplicacion de Discord.
-- `GUILD_ID`: ID del servidor donde se sincronizan rapido los comandos. Recomendado para que `/sorteo` aparezca al reiniciar y no tengas que esperar la cache global de Discord.
+- `GUILD_IDS`: IDs de los servidores donde se sincronizan rapido los comandos, separados por coma. Ejemplo: `111111111111111111,222222222222222222`.
+- `GUILD_ID`: opcional y compatible con la version anterior si solo usas un servidor. Si defines `GUILD_IDS`, esa lista tiene prioridad.
 - `DATA_DIR`: opcional. Si usas un volumen persistente en Railway, apuntalo al path del volumen. Si no, SQLite puede reiniciarse en redeploys.
 - `EMOJI_DROPS_*_ID`: opcional. IDs de los emojis del Developer Portal. Si no existen, el bot usa emojis unicode.
 - `DROP_ADMIN_ROLE_IDS`: opcional. IDs de roles que pueden administrar Drops, separados por coma.
