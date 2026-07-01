@@ -12,6 +12,25 @@ from permissions import can_manage_drop_participants, can_use_drop_admin_panel
 
 
 PARTICIPANTS_PER_PAGE = 10
+BUTTON_NOTICE_SECONDS = 4
+
+
+async def send_button_notice(interaction: discord.Interaction, message: str):
+    if not interaction.response.is_done():
+        await interaction.response.send_message(
+            content=message,
+            ephemeral=True,
+            delete_after=BUTTON_NOTICE_SECONDS,
+        )
+        return
+
+    notice = await interaction.followup.send(
+        content=message,
+        ephemeral=True,
+        wait=True,
+    )
+    with contextlib.suppress(discord.HTTPException, discord.NotFound):
+        await notice.delete(delay=BUTTON_NOTICE_SECONDS)
 
 
 class DropPublicView(discord.ui.View):
@@ -34,11 +53,18 @@ class JoinDropButton(discord.ui.Button):
         self.drop_id = int(drop_id)
 
     async def callback(self, interaction: discord.Interaction):
-        db.add_entry(
+        result = db.add_entry(
             self.drop_id,
             interaction.user.id,
             getattr(interaction.user, "display_name", interaction.user.name),
         )
+        messages = {
+            "joined": "Listo, entraste al Drop.",
+            "already": "Ya estas participando en este Drop.",
+            "blocked": "No puedes entrar a este Drop.",
+            "closed": "Este Drop ya no esta activo.",
+        }
+        await send_button_notice(interaction, messages.get(result, "No pude agregarte."))
         await refresh_source_message(interaction, self.drop_id)
 
 
@@ -53,7 +79,9 @@ class LeaveDropButton(discord.ui.Button):
         self.drop_id = int(drop_id)
 
     async def callback(self, interaction: discord.Interaction):
-        db.remove_entry(self.drop_id, interaction.user.id, actor_id=interaction.user.id, reason="self_leave")
+        removed = db.remove_entry(self.drop_id, interaction.user.id, actor_id=interaction.user.id, reason="self_leave")
+        text = "Saliste del Drop." if removed else "No estabas participando en este Drop."
+        await send_button_notice(interaction, text)
         await refresh_source_message(interaction, self.drop_id)
 
 
