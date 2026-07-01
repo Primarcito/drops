@@ -51,10 +51,6 @@ def _can_use_original_ephemeral_response(interaction: discord.Interaction) -> bo
     }
 
 
-def _is_component_interaction(interaction: discord.Interaction) -> bool:
-    return interaction.type == discord.InteractionType.component
-
-
 async def _forget_previous(key, previous):
     old_task = _EPHEMERAL_DELETE_TASKS.pop(key, None)
     if old_task:
@@ -78,7 +74,7 @@ async def upsert_ephemeral(
     key = ephemeral_key(interaction, scope)
     previous = _EPHEMERAL_MESSAGES.get(key)
 
-    if prefer_current_response or _is_component_interaction(interaction):
+    if prefer_current_response:
         await _forget_previous(key, previous)
         previous = None
 
@@ -96,7 +92,13 @@ async def upsert_ephemeral(
             _EPHEMERAL_MESSAGES.pop(key, None)
 
     if not interaction.response.is_done():
-        await interaction.response.send_message(content=content, embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(
+            content=content,
+            embed=embed,
+            view=view,
+            ephemeral=True,
+            delete_after=delete_after,
+        )
         message = await interaction.original_response()
     elif _can_use_original_ephemeral_response(interaction):
         try:

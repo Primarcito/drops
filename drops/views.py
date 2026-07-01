@@ -18,6 +18,7 @@ async def send_button_notice(interaction: discord.Interaction, drop_id: int, mes
         interaction,
         scope=f"drop:{int(drop_id)}:button-notice",
         content=message,
+        delete_after=8,
     )
 
 
