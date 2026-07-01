@@ -11,7 +11,6 @@ from permissions import can_manage_drop_participants, can_use_drop_admin_panel
 
 
 PARTICIPANTS_PER_PAGE = 10
-BUTTON_NOTICE_DELETE_AFTER = 10
 
 
 async def send_button_notice(interaction: discord.Interaction, drop_id: int, message: str):
@@ -19,7 +18,6 @@ async def send_button_notice(interaction: discord.Interaction, drop_id: int, mes
         interaction,
         scope=f"drop:{int(drop_id)}:button-notice",
         content=message,
-        delete_after=BUTTON_NOTICE_DELETE_AFTER,
     )
 
 
