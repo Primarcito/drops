@@ -72,6 +72,5 @@ async def on_ready():
 
 if __name__ == "__main__":
     if not DISCORD_TOKEN:
-        raise RuntimeError("Falta DISCORD_TOKEN en .env")
+        raise RuntimeError("Falta TOKEN o DISCORD_TOKEN en las variables de entorno")
     bot.run(DISCORD_TOKEN)
-

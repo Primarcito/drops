@@ -25,6 +25,15 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Railway
+
+Variables recomendadas:
+
+- `TOKEN` o `DISCORD_TOKEN`: token del bot de Discord.
+- `APPLICATION_ID`: ID de la aplicacion de Discord.
+- `GUILD_ID`: ID del servidor donde se sincronizan rapido los comandos.
+- `DATA_DIR`: opcional. Si usas un volumen persistente en Railway, apuntalo al path del volumen. Si no, SQLite puede reiniciarse en redeploys.
+
 ## Comandos principales
 
 - `/drops crear`
@@ -34,4 +43,3 @@ python main.py
 - `/drops finalizar`
 - `/drops reroll`
 - `/drops cancelar`
-

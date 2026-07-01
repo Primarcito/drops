@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN") or os.getenv("TOKEN", "")
 APPLICATION_ID = int(os.getenv("APPLICATION_ID", "0") or 0)
 GUILD_ID = int(os.getenv("GUILD_ID", "0") or 0)
 
@@ -19,4 +19,3 @@ COLOR_ERROR = 0xEB5757
 COLOR_DONE = 0x9B51E0
 
 DROP_CHECK_INTERVAL_SECONDS = 30
-
