@@ -10,6 +10,15 @@ from permissions import can_manage_drops
 
 
 PARTICIPANTS_PER_PAGE = 10
+BUTTON_NOTICE_DELETE_AFTER = 6
+
+
+async def send_button_notice(interaction: discord.Interaction, message: str):
+    await interaction.response.send_message(
+        message,
+        ephemeral=True,
+        delete_after=BUTTON_NOTICE_DELETE_AFTER,
+    )
 
 
 class DropPublicView(discord.ui.View):
@@ -46,7 +55,7 @@ class JoinDropButton(discord.ui.Button):
         }
 
         await refresh_source_message(interaction, self.drop_id)
-        await interaction.response.send_message(messages.get(result, "No pude agregarte."), ephemeral=True)
+        await send_button_notice(interaction, messages.get(result, "No pude agregarte."))
 
 
 class LeaveDropButton(discord.ui.Button):
@@ -63,7 +72,7 @@ class LeaveDropButton(discord.ui.Button):
         removed = db.remove_entry(self.drop_id, interaction.user.id, actor_id=interaction.user.id, reason="self_leave")
         await refresh_source_message(interaction, self.drop_id)
         text = "Saliste del Drop." if removed else "No estabas participando en este Drop."
-        await interaction.response.send_message(text, ephemeral=True)
+        await send_button_notice(interaction, text)
 
 
 class ParticipantsButton(discord.ui.Button):
