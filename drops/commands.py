@@ -7,6 +7,7 @@ import database as db
 from embed_assets import banner_file, banner_filename
 from drops.admin_views import DropAdminPanelView, build_admin_panel_embed
 from drops.ephemeral import upsert_ephemeral
+from drops.log_views import DropLogsView
 from drops.timeparse import parse_duration
 from drops.views import DropPublicView
 from embeds import build_drop_embed
@@ -129,4 +130,28 @@ async def admin_panel(interaction: discord.Interaction, drop_id: int):
         scope=f"drop:{int(drop_id)}:panel",
         embed=build_admin_panel_embed(drop_id),
         view=DropAdminPanelView(drop_id),
+    )
+
+
+@sorteo_group.command(name="logs", description="Muestra el historial de sorteos finalizados")
+async def drop_logs(interaction: discord.Interaction):
+    print(
+        "[DROPS] /sorteo logs recibido: "
+        f"guild_id={getattr(interaction.guild, 'id', None)} "
+        f"user_id={getattr(interaction.user, 'id', None)}"
+    )
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    if not await require_panel_role(interaction):
+        return
+    if not interaction.guild:
+        await send_private(interaction, "Este comando solo funciona dentro de un servidor.")
+        return
+
+    view = DropLogsView(interaction.guild.id)
+    await upsert_ephemeral(
+        interaction,
+        scope="drop:logs",
+        embed=view.embed(),
+        view=view,
     )

@@ -113,6 +113,39 @@ def build_participants_embed(
     return embed
 
 
+def build_drop_logs_embed(rows, page: int, total: int, per_page: int, notice: str | None = None) -> discord.Embed:
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    embed = discord.Embed(
+        title=f"{emojis.DROPS} Logs de sorteos",
+        color=COLOR_PANEL,
+    )
+
+    if rows:
+        lines = []
+        for row in rows:
+            status = status_label(row["status"])
+            winners = row["winner_ids"] or ""
+            winner_text = ", ".join(f"<@{winner_id}>" for winner_id in winners.split(",") if winner_id)
+            if not winner_text:
+                winner_text = "Sin ganador"
+            ended_at = row["ended_at"] or row["created_at"]
+            timestamp = f"<t:{unix_ts(ended_at)}:R>" if ended_at else "Sin fecha"
+            lines.append(
+                f"**Drop #{row['id']}** - {row['prize']}\n"
+                f"{status} | {row['participant_count']} participantes | {timestamp}\n"
+                f"{emojis.WINNER} {winner_text}"
+            )
+        embed.description = "\n\n".join(lines)[:4000]
+    else:
+        embed.description = "No hay logs visibles de sorteos finalizados."
+
+    if notice:
+        embed.add_field(name="Ultima accion", value=notice[:1000], inline=False)
+
+    embed.set_footer(text=f"Pagina {page + 1}/{total_pages} | Total: {total}")
+    return embed
+
+
 def build_winner_content(drop, winners) -> str | None:
     if not winners:
         return None

@@ -49,3 +49,4 @@ Variables recomendadas:
 
 - `/sorteo crear`: publica un sorteo en el canal. Campos obligatorios: `premio`, `duracion`, `ganadores`. Campo opcional: `requisitos`.
 - `/sorteo panel`: abre el panel privado para ver participantes, quitar, bloquear, finalizar, cancelar, hacer reroll y cambiar la foto del premio.
+- `/sorteo logs`: abre el historial privado de sorteos finalizados. Limpiar logs solo oculta el historial visible; el numero de Drop sigue aumentando.

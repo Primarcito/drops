@@ -33,6 +33,7 @@ def init_db():
                 requirements_text TEXT,
                 ends_at TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'active',
+                hidden_from_logs INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 ended_at TEXT
             );
@@ -86,6 +87,9 @@ def init_db():
 
             CREATE INDEX IF NOT EXISTS idx_drop_winners_drop
                 ON drop_winners (drop_id, id);
+
+            CREATE INDEX IF NOT EXISTS idx_drops_history
+                ON drops (guild_id, hidden_from_logs, status, id);
             """
         )
         c = conn.cursor()
@@ -93,6 +97,8 @@ def init_db():
         drop_cols = {row[1] for row in c.fetchall()}
         if "prize_image_filename" not in drop_cols:
             c.execute("ALTER TABLE drops ADD COLUMN prize_image_filename TEXT")
+        if "hidden_from_logs" not in drop_cols:
+            c.execute("ALTER TABLE drops ADD COLUMN hidden_from_logs INTEGER NOT NULL DEFAULT 0")
         conn.commit()
     print(f"[DROPS] Base de datos lista: {os.path.abspath(DB_PATH)}")
 
@@ -167,6 +173,65 @@ def get_due_drops():
             "SELECT * FROM drops WHERE status='active' AND ends_at <= ?",
             (now,),
         ).fetchall()
+
+
+def count_drop_history(guild_id) -> int:
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM drops
+            WHERE guild_id=? AND hidden_from_logs=0 AND status IN ('ended', 'cancelled')
+            """,
+            (str(guild_id),),
+        ).fetchone()
+    return int(row["total"] if row else 0)
+
+
+def list_drop_history(guild_id, limit: int = 5, offset: int = 0):
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT
+                d.id,
+                d.prize,
+                d.creator_id,
+                d.winner_count,
+                d.status,
+                d.created_at,
+                d.ended_at,
+                (
+                    SELECT COUNT(*)
+                    FROM drop_entries e
+                    WHERE e.drop_id=d.id AND e.active=1
+                ) AS participant_count,
+                (
+                    SELECT GROUP_CONCAT(w.user_id, ',')
+                    FROM drop_winners w
+                    WHERE w.drop_id=d.id
+                    ORDER BY w.id ASC
+                ) AS winner_ids
+            FROM drops d
+            WHERE d.guild_id=? AND d.hidden_from_logs=0 AND d.status IN ('ended', 'cancelled')
+            ORDER BY d.id DESC
+            LIMIT ? OFFSET ?
+            """,
+            (str(guild_id), int(limit), int(offset)),
+        ).fetchall()
+
+
+def clear_drop_history(guild_id) -> int:
+    with get_conn() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE drops
+            SET hidden_from_logs=1
+            WHERE guild_id=? AND hidden_from_logs=0 AND status IN ('ended', 'cancelled')
+            """,
+            (str(guild_id),),
+        )
+        conn.commit()
+    return int(cursor.rowcount or 0)
 
 
 def count_entries(drop_id: int) -> int:
