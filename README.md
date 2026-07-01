@@ -34,6 +34,8 @@ Variables recomendadas:
 - `GUILD_ID`: ID del servidor donde se sincronizan rapido los comandos.
 - `DATA_DIR`: opcional. Si usas un volumen persistente en Railway, apuntalo al path del volumen. Si no, SQLite puede reiniciarse en redeploys.
 - `EMOJI_DROPS_*_ID`: opcional. IDs de los emojis del Developer Portal. Si no existen, el bot usa emojis unicode.
+- `DROP_ADMIN_ROLE_IDS`: opcional. IDs de roles que pueden administrar Drops, separados por coma.
+- `DROP_ADMIN_ROLE_NAMES`: opcional. Nombres de roles que pueden administrar Drops, separados por coma.
 
 ## Comandos principales
 
