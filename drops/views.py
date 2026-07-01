@@ -1,4 +1,5 @@
 import math
+import contextlib
 
 import discord
 
@@ -11,15 +12,6 @@ from permissions import can_manage_drop_participants, can_use_drop_admin_panel
 
 
 PARTICIPANTS_PER_PAGE = 10
-
-
-async def send_button_notice(interaction: discord.Interaction, drop_id: int, message: str):
-    await upsert_ephemeral(
-        interaction,
-        scope=f"drop:{int(drop_id)}:button-notice",
-        content=message,
-        delete_after=8,
-    )
 
 
 class DropPublicView(discord.ui.View):
@@ -42,20 +34,11 @@ class JoinDropButton(discord.ui.Button):
         self.drop_id = int(drop_id)
 
     async def callback(self, interaction: discord.Interaction):
-        result = db.add_entry(
+        db.add_entry(
             self.drop_id,
             interaction.user.id,
             getattr(interaction.user, "display_name", interaction.user.name),
         )
-
-        messages = {
-            "joined": "Listo, entraste al Drop.",
-            "already": "Ya estas participando en este Drop.",
-            "blocked": "No puedes entrar a este Drop.",
-            "closed": "Este Drop ya no esta activo.",
-        }
-
-        await send_button_notice(interaction, self.drop_id, messages.get(result, "No pude agregarte."))
         await refresh_source_message(interaction, self.drop_id)
 
 
@@ -70,9 +53,7 @@ class LeaveDropButton(discord.ui.Button):
         self.drop_id = int(drop_id)
 
     async def callback(self, interaction: discord.Interaction):
-        removed = db.remove_entry(self.drop_id, interaction.user.id, actor_id=interaction.user.id, reason="self_leave")
-        text = "Saliste del Drop." if removed else "No estabas participando en este Drop."
-        await send_button_notice(interaction, self.drop_id, text)
+        db.remove_entry(self.drop_id, interaction.user.id, actor_id=interaction.user.id, reason="self_leave")
         await refresh_source_message(interaction, self.drop_id)
 
 
@@ -101,6 +82,7 @@ class ParticipantsButton(discord.ui.Button):
             scope=f"drop:{self.drop_id}:participants",
             embed=view.embed(),
             view=view,
+            prefer_current_response=True,
         )
 
 
@@ -290,21 +272,27 @@ class BlockParticipantSelect(discord.ui.Select):
 async def refresh_source_message(interaction: discord.Interaction, drop_id: int):
     drop = db.get_drop(drop_id)
     if not drop:
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         return
     participant_count = db.count_entries(drop_id)
     winners = db.get_winners(drop_id)
+    embed = build_drop_embed(
+        drop,
+        participant_count,
+        winners,
+        image_filename=image_filename_for_drop(drop, winners),
+    )
+    view = DropPublicView(drop_id) if drop["status"] == "active" else None
     try:
-        await interaction.message.edit(
-            embed=build_drop_embed(
-                drop,
-                participant_count,
-                winners,
-                image_filename=image_filename_for_drop(drop, winners),
-            ),
-            view=DropPublicView(drop_id) if drop["status"] == "active" else None,
-        )
+        if interaction.response.is_done():
+            await interaction.message.edit(embed=embed, view=view)
+        else:
+            await interaction.response.edit_message(embed=embed, view=view)
     except discord.HTTPException:
-        pass
+        if not interaction.response.is_done():
+            with contextlib.suppress(discord.HTTPException, discord.InteractionResponded):
+                await interaction.response.defer()
 
 
 async def refresh_public_from_client(client: discord.Client, drop_id: int):
