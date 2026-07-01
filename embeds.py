@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import discord
 
-from config import COLOR_DONE, COLOR_ERROR, COLOR_PANEL, COLOR_SUCCESS, COLOR_WARNING
+from config import COLOR_DONE, COLOR_ERROR, COLOR_PANEL, COLOR_WARNING
 import emojis
 
 
@@ -32,6 +32,7 @@ def status_color(status: str) -> int:
 def build_drop_embed(drop, participant_count: int, winners=None, image_filename: str | None = None) -> discord.Embed:
     status = drop["status"]
     ends_at = unix_ts(drop["ends_at"])
+    winners = winners or []
 
     embed = discord.Embed(
         title=f"{emojis.PRIZE} {drop['prize']}",
@@ -39,7 +40,19 @@ def build_drop_embed(drop, participant_count: int, winners=None, image_filename:
         color=status_color(status),
     )
     embed.add_field(name=f"{emojis.TICKET} Participantes", value=str(participant_count), inline=True)
-    embed.add_field(name=f"{emojis.WINNER} Ganadores", value=str(drop["winner_count"]), inline=True)
+
+    if status == "ended":
+        if winners:
+            field_name = f"{emojis.WINNER} Ganador" if len(winners) == 1 else f"{emojis.WINNER} Ganadores"
+            winner_text = "\n".join(f"<@{row['user_id']}>" for row in winners)
+            embed.add_field(name=field_name, value=winner_text[:1000], inline=True)
+        else:
+            embed.add_field(name="Resultado", value="Sin ganador", inline=True)
+    elif status == "cancelled":
+        embed.add_field(name="Resultado", value="Cancelado", inline=True)
+    else:
+        embed.add_field(name=f"{emojis.WINNER} Ganadores", value=str(drop["winner_count"]), inline=True)
+
     embed.add_field(name="Estado", value=status_label(status), inline=True)
 
     if status == "active":
@@ -76,13 +89,6 @@ def build_participants_embed(drop, entries, page: int, total: int, per_page: int
     return embed
 
 
-def build_result_text(drop, winners) -> str:
-    if winners:
-        mentions = ", ".join(f"<@{row['user_id']}>" for row in winners)
-        return f"{emojis.WINNER} Drop #{drop['id']} finalizado. Ganador(es): {mentions}"
-    return f"{emojis.BLOCKED} Drop #{drop['id']} finalizado sin participantes suficientes."
-
-
 def build_winner_content(drop, winners) -> str | None:
     if not winners:
         return None
@@ -94,21 +100,12 @@ def build_winner_content(drop, winners) -> str | None:
     return f"{emojis.WINNER} Felicidades {mentions}, ganaron **{drop['prize']}**!"
 
 
-def build_winner_embed(drop, winners, image_filename: str | None = None) -> discord.Embed:
-    if winners:
-        title = f"{emojis.PRIZE} Premio entregado"
-        description = f"**{drop['prize']}**"
-    else:
-        title = f"{emojis.BLOCKED} Drop finalizado"
-        description = f"{emojis.BLOCKED} No hubo participantes suficientes."
+def build_reroll_content(drop, winners) -> str | None:
+    if not winners:
+        return None
 
-    embed = discord.Embed(
-        title=title,
-        description=description,
-        color=COLOR_SUCCESS if winners else COLOR_WARNING,
-    )
-    if image_filename:
-        embed.set_image(url=f"attachment://{image_filename}")
+    mentions = ", ".join(f"<@{row['user_id']}>" for row in winners)
+    if len(winners) == 1:
+        return f"{emojis.REROLL} Reroll de Drop #{drop['id']}: {mentions} gano **{drop['prize']}**!"
 
-    embed.set_footer(text=f"Drop #{drop['id']}")
-    return embed
+    return f"{emojis.REROLL} Reroll de Drop #{drop['id']}: {mentions} ganaron **{drop['prize']}**!"

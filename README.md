@@ -39,10 +39,5 @@ Variables recomendadas:
 
 ## Comandos principales
 
-- `/drops crear`
-- `/drops participantes`
-- `/drops quitar`
-- `/drops bloquear`
-- `/drops finalizar`
-- `/drops reroll`
-- `/drops cancelar`
+- `/sorteo crear`: publica un sorteo en el canal.
+- `/sorteo panel`: abre el panel privado para ver participantes, quitar, bloquear, finalizar, cancelar, hacer reroll y cambiar la foto del premio.

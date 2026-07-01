@@ -28,6 +28,7 @@ def init_db():
                 message_id TEXT,
                 creator_id TEXT NOT NULL,
                 prize TEXT NOT NULL,
+                prize_image_filename TEXT,
                 winner_count INTEGER NOT NULL DEFAULT 1,
                 requirements_text TEXT,
                 ends_at TEXT NOT NULL,
@@ -78,6 +79,11 @@ def init_db():
             );
             """
         )
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(drops)")
+        drop_cols = {row[1] for row in c.fetchall()}
+        if "prize_image_filename" not in drop_cols:
+            c.execute("ALTER TABLE drops ADD COLUMN prize_image_filename TEXT")
         conn.commit()
 
 
@@ -121,6 +127,16 @@ def create_drop(guild_id, channel_id, creator_id, prize: str, winner_count: int,
 def set_drop_message(drop_id: int, message_id):
     with get_conn() as conn:
         conn.execute("UPDATE drops SET message_id=? WHERE id=?", (str(message_id), int(drop_id)))
+        conn.commit()
+
+
+def set_drop_image(drop_id: int, filename: str, actor_id=None):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE drops SET prize_image_filename=? WHERE id=?",
+            (filename, int(drop_id)),
+        )
+        log_action(conn, drop_id, "photo_updated", actor_id=actor_id, reason=filename)
         conn.commit()
 
 
@@ -310,4 +326,3 @@ def latest_reroll_index(drop_id: int) -> int:
             (int(drop_id),),
         ).fetchone()
     return int(row["value"] if row else 0)
-

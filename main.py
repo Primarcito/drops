@@ -7,7 +7,7 @@ from discord.ext import commands
 
 import database as db
 from config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID
-from drops.commands import drop_group
+from drops.commands import sorteo_group
 from drops.scheduler import drop_watch_loop
 from drops.views import DropPublicView
 
@@ -53,7 +53,7 @@ async def on_ready():
         bot.add_view(DropPublicView(int(drop["id"])))
 
     if not COMMANDS_SYNCED:
-        bot.tree.add_command(drop_group)
+        bot.tree.add_command(sorteo_group)
         if GUILD_ID:
             guild = discord.Object(id=GUILD_ID)
             bot.tree.copy_global_to(guild=guild)

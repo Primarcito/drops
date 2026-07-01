@@ -4,7 +4,7 @@ import discord
 
 import database as db
 import emojis
-from embed_assets import banner_filename
+from embed_assets import image_filename_for_drop
 from embeds import build_drop_embed, build_participants_embed
 from permissions import can_manage_drops
 
@@ -116,6 +116,7 @@ class ParticipantsView(discord.ui.View):
             entries = self.entries()
             if entries:
                 self.add_item(RemoveParticipantSelect(self.drop_id, entries))
+                self.add_item(BlockParticipantSelect(self.drop_id, entries))
         self.add_item(PreviousPageButton())
         self.add_item(NextPageButton())
         self.update_button_states()
@@ -187,6 +188,43 @@ class RemoveParticipantSelect(discord.ui.Select):
         await interaction.response.edit_message(embed=self.view.embed(), view=self.view)
 
 
+class BlockParticipantSelect(discord.ui.Select):
+    def __init__(self, drop_id: int, entries):
+        self.usernames = {str(row["user_id"]): str(row["username"]) for row in entries}
+        options = [
+            discord.SelectOption(
+                label=str(row["username"])[:100],
+                value=str(row["user_id"]),
+                description=f"ID: {row['user_id']}"[:100],
+            )
+            for row in entries[:25]
+        ]
+        super().__init__(
+            placeholder="Bloquear participante de esta pagina",
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+        self.drop_id = int(drop_id)
+
+    async def callback(self, interaction: discord.Interaction):
+        if not can_manage_drops(interaction):
+            await interaction.response.send_message("No tienes permiso para bloquear participantes.", ephemeral=True)
+            return
+
+        user_id = self.values[0]
+        db.block_entry(
+            self.drop_id,
+            user_id,
+            self.usernames.get(user_id, user_id),
+            actor_id=interaction.user.id,
+            reason="blocked_from_panel",
+        )
+        await refresh_public_from_client(interaction.client, self.drop_id)
+        self.view.sync_children()
+        await interaction.response.edit_message(embed=self.view.embed(), view=self.view)
+
+
 async def refresh_source_message(interaction: discord.Interaction, drop_id: int):
     drop = db.get_drop(drop_id)
     if not drop:
@@ -194,10 +232,14 @@ async def refresh_source_message(interaction: discord.Interaction, drop_id: int)
     participant_count = db.count_entries(drop_id)
     winners = db.get_winners(drop_id)
     try:
-        image_filename = banner_filename("active") if drop["status"] == "active" else None
         await interaction.message.edit(
-            embed=build_drop_embed(drop, participant_count, winners, image_filename=image_filename),
-            view=DropPublicView(drop_id),
+            embed=build_drop_embed(
+                drop,
+                participant_count,
+                winners,
+                image_filename=image_filename_for_drop(drop, winners),
+            ),
+            view=DropPublicView(drop_id) if drop["status"] == "active" else None,
         )
     except discord.HTTPException:
         pass
@@ -211,15 +253,15 @@ async def refresh_public_from_client(client: discord.Client, drop_id: int):
         channel = client.get_channel(int(drop["channel_id"])) or await client.fetch_channel(int(drop["channel_id"]))
         message = await channel.fetch_message(int(drop["message_id"]))
         participant_count = db.count_entries(drop_id)
-        image_filename = banner_filename("active") if drop["status"] == "active" else None
+        winners = db.get_winners(drop_id)
         await message.edit(
             embed=build_drop_embed(
                 drop,
                 participant_count,
-                db.get_winners(drop_id),
-                image_filename=image_filename,
+                winners,
+                image_filename=image_filename_for_drop(drop, winners),
             ),
-            view=DropPublicView(drop_id),
+            view=DropPublicView(drop_id) if drop["status"] == "active" else None,
         )
     except (discord.HTTPException, ValueError, TypeError):
         pass
