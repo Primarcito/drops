@@ -29,10 +29,9 @@ def status_color(status: str) -> int:
     }.get(status, COLOR_WARNING)
 
 
-def build_drop_embed(drop, participant_count: int, winners=None) -> discord.Embed:
+def build_drop_embed(drop, participant_count: int, winners=None, image_filename: str | None = None) -> discord.Embed:
     status = drop["status"]
     ends_at = unix_ts(drop["ends_at"])
-    winners = winners or []
 
     embed = discord.Embed(
         title=f"{emojis.PRIZE} {drop['prize']}",
@@ -50,9 +49,8 @@ def build_drop_embed(drop, participant_count: int, winners=None) -> discord.Embe
     if requirements:
         embed.add_field(name="Requisitos", value=requirements[:1000], inline=False)
 
-    if winners:
-        winner_text = "\n".join(f"{emojis.WINNER} <@{row['user_id']}>" for row in winners)
-        embed.add_field(name=f"{emojis.WINNER} Ganador(es)", value=winner_text[:1000], inline=False)
+    if image_filename:
+        embed.set_image(url=f"attachment://{image_filename}")
 
     embed.set_footer(text=f"Drop #{drop['id']}")
     return embed
@@ -96,16 +94,21 @@ def build_winner_content(drop, winners) -> str | None:
     return f"{emojis.WINNER} Felicidades {mentions}, ganaron **{drop['prize']}**!"
 
 
-def build_winner_embed(drop, winners) -> discord.Embed:
+def build_winner_embed(drop, winners, image_filename: str | None = None) -> discord.Embed:
     if winners:
-        description = "\n".join(f"{emojis.WINNER} <@{row['user_id']}>" for row in winners)
+        title = f"{emojis.PRIZE} Premio entregado"
+        description = f"**{drop['prize']}**"
     else:
+        title = f"{emojis.BLOCKED} Drop finalizado"
         description = f"{emojis.BLOCKED} No hubo participantes suficientes."
 
     embed = discord.Embed(
-        title=f"{emojis.PRIZE} {drop['prize']} - Sorteo finalizado",
+        title=title,
         description=description,
         color=COLOR_SUCCESS if winners else COLOR_WARNING,
     )
+    if image_filename:
+        embed.set_image(url=f"attachment://{image_filename}")
+
     embed.set_footer(text=f"Drop #{drop['id']}")
     return embed

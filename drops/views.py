@@ -4,6 +4,7 @@ import discord
 
 import database as db
 import emojis
+from embed_assets import banner_filename
 from embeds import build_drop_embed, build_participants_embed
 from permissions import can_manage_drops
 
@@ -193,7 +194,11 @@ async def refresh_source_message(interaction: discord.Interaction, drop_id: int)
     participant_count = db.count_entries(drop_id)
     winners = db.get_winners(drop_id)
     try:
-        await interaction.message.edit(embed=build_drop_embed(drop, participant_count, winners), view=DropPublicView(drop_id))
+        image_filename = banner_filename("active") if drop["status"] == "active" else None
+        await interaction.message.edit(
+            embed=build_drop_embed(drop, participant_count, winners, image_filename=image_filename),
+            view=DropPublicView(drop_id),
+        )
     except discord.HTTPException:
         pass
 
@@ -206,6 +211,15 @@ async def refresh_public_from_client(client: discord.Client, drop_id: int):
         channel = client.get_channel(int(drop["channel_id"])) or await client.fetch_channel(int(drop["channel_id"]))
         message = await channel.fetch_message(int(drop["message_id"]))
         participant_count = db.count_entries(drop_id)
-        await message.edit(embed=build_drop_embed(drop, participant_count, db.get_winners(drop_id)), view=DropPublicView(drop_id))
+        image_filename = banner_filename("active") if drop["status"] == "active" else None
+        await message.edit(
+            embed=build_drop_embed(
+                drop,
+                participant_count,
+                db.get_winners(drop_id),
+                image_filename=image_filename,
+            ),
+            view=DropPublicView(drop_id),
+        )
     except (discord.HTTPException, ValueError, TypeError):
         pass

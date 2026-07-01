@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 
 import database as db
+from embed_assets import banner_file, banner_filename
 from drops.service import conclude_drop, refresh_public_message
 from drops.timeparse import parse_duration
 from drops.views import ParticipantsView, DropPublicView
@@ -64,8 +65,16 @@ async def create_drop(
         requisitos,
     )
     drop = db.get_drop(drop_id)
-    embed = build_drop_embed(drop, participant_count=0)
-    await interaction.response.send_message(embed=embed, view=DropPublicView(drop_id))
+    file = banner_file("active")
+    embed = build_drop_embed(
+        drop,
+        participant_count=0,
+        image_filename=file.filename if file else banner_filename("active"),
+    )
+    if file:
+        await interaction.response.send_message(embed=embed, view=DropPublicView(drop_id), file=file)
+    else:
+        await interaction.response.send_message(embed=embed, view=DropPublicView(drop_id))
     message = await interaction.original_response()
     db.set_drop_message(drop_id, message.id)
 
@@ -200,4 +209,3 @@ async def reroll_drop(interaction: discord.Interaction, drop_id: int):
 
     mentions = ", ".join(f"<@{row['user_id']}>" for row in winners)
     await interaction.response.send_message(f"Reroll de Drop #{drop_id}: {mentions}")
-
