@@ -168,6 +168,7 @@ class ParticipantsView(discord.ui.View):
             self.total(),
             PARTICIPANTS_PER_PAGE,
             notice=self.notice,
+            manager=self.manager,
         )
 
     def sync_children(self):
