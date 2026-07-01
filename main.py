@@ -16,7 +16,7 @@ from drops.views import DropPublicView
 intents = discord.Intents.default()
 
 
-SYNC_VERSION = "sorteo-token-app-id-v5"
+SYNC_VERSION = "sorteo-multi-guild-copy-v6"
 
 
 class DropsBot(commands.Bot):
@@ -60,18 +60,19 @@ async def sync_application_commands(client: commands.Bot):
         f"application_id={client.application_id} | GUILD_IDS={GUILD_IDS or 'global'}"
     )
 
+    client.tree.clear_commands(guild=None)
+    client.tree.add_command(sorteo_group)
+
     if GUILD_IDS:
-        client.tree.clear_commands(guild=None)
         global_synced = await client.tree.sync()
         global_fetched = await client.tree.fetch_commands()
-        client.tree.add_command(sorteo_group)
 
         synced_by_guild = {}
         for guild_id in GUILD_IDS:
             guild = discord.Object(id=guild_id)
             try:
                 client.tree.clear_commands(guild=guild)
-                client.tree.add_command(sorteo_group, guild=guild)
+                client.tree.copy_global_to(guild=guild)
                 synced = await client.tree.sync(guild=guild)
                 fetched = await client.tree.fetch_commands(guild=guild)
                 synced_by_guild[guild_id] = {
@@ -83,14 +84,12 @@ async def sync_application_commands(client: commands.Bot):
 
         print(
             "[DROPS] Comandos de servidor sincronizados: "
-            f"{synced_by_guild} | Globales: synced={len(global_synced)} "
+            f"{synced_by_guild} | Globales: synced={[command.name for command in global_synced]} "
             f"discord={[command.name for command in global_fetched]} | "
             f"local_global={[command.name for command in client.tree.get_commands()]}"
         )
         return
 
-    client.tree.clear_commands(guild=None)
-    client.tree.add_command(sorteo_group)
     global_synced = await client.tree.sync()
     global_fetched = await client.tree.fetch_commands()
     print(
