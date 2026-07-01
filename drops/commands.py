@@ -15,10 +15,17 @@ from permissions import can_manage_drops
 sorteo_group = app_commands.Group(name="sorteo", description="Sistema de sorteos dinamicos")
 
 
+async def send_private(interaction: discord.Interaction, message: str):
+    if interaction.response.is_done():
+        await interaction.followup.send(message, ephemeral=True)
+    else:
+        await interaction.response.send_message(message, ephemeral=True)
+
+
 async def require_manager(interaction: discord.Interaction) -> bool:
     if can_manage_drops(interaction):
         return True
-    await interaction.response.send_message("No tienes permiso para administrar Drops.", ephemeral=True)
+    await send_private(interaction, "No tienes permiso para administrar Drops.")
     return False
 
 
@@ -43,19 +50,25 @@ async def create_drop(
     ganadores: app_commands.Range[int, 1, 25] = 1,
     requisitos: str = "",
 ):
+    print(
+        "[DROPS] /sorteo crear recibido: "
+        f"guild_id={getattr(interaction.guild, 'id', None)} "
+        f"channel_id={getattr(interaction.channel, 'id', None)} "
+        f"user_id={getattr(interaction.user, 'id', None)}"
+    )
+    await interaction.response.defer(thinking=True)
+
     if not await require_manager(interaction):
         return
     if not interaction.guild or not interaction.channel:
-        await interaction.response.send_message("Este comando solo funciona dentro de un servidor.", ephemeral=True)
+        await interaction.followup.send("Este comando solo funciona dentro de un servidor.", ephemeral=True)
         return
 
     try:
         ends_at = datetime.now(timezone.utc) + parse_duration(duracion)
     except ValueError as err:
-        await interaction.response.send_message(str(err), ephemeral=True)
+        await interaction.followup.send(str(err), ephemeral=True)
         return
-
-    await interaction.response.defer(thinking=True)
 
     drop_id = db.create_drop(
         interaction.guild.id,
@@ -84,15 +97,21 @@ async def create_drop(
 @sorteo_group.command(name="panel", description="Abre el panel privado de administracion de un sorteo")
 @app_commands.describe(drop_id="ID del sorteo")
 async def admin_panel(interaction: discord.Interaction, drop_id: int):
+    print(
+        "[DROPS] /sorteo panel recibido: "
+        f"drop_id={drop_id} guild_id={getattr(interaction.guild, 'id', None)} "
+        f"user_id={getattr(interaction.user, 'id', None)}"
+    )
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
     if not await require_manager(interaction):
         return
 
     drop, error = active_drop_or_error(drop_id)
     if error:
-        await interaction.response.send_message(error, ephemeral=True)
+        await interaction.followup.send(error, ephemeral=True)
         return
 
-    await interaction.response.defer(ephemeral=True, thinking=True)
     await interaction.followup.send(
         embed=build_admin_panel_embed(drop_id),
         view=DropAdminPanelView(drop_id),

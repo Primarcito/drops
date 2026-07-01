@@ -16,7 +16,7 @@ intents = discord.Intents.default()
 intents.members = True
 
 
-SYNC_VERSION = "sorteo-setup-hook-v3"
+SYNC_VERSION = "sorteo-defer-first-v4"
 
 
 class DropsBot(commands.Bot):
@@ -42,12 +42,18 @@ async def send_interaction_error(interaction: discord.Interaction, message: str)
             await interaction.followup.send(message, ephemeral=True)
         else:
             await interaction.response.send_message(message, ephemeral=True)
-    except discord.HTTPException:
-        pass
+    except discord.HTTPException as err:
+        print(f"[DROPS] No pude responder error de interaccion: {err}")
 
 
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     original = getattr(error, "original", error)
+    print(
+        "[DROPS] Error en comando: "
+        f"command={getattr(interaction.command, 'qualified_name', None)} "
+        f"guild_id={getattr(interaction.guild, 'id', None)} "
+        f"user_id={getattr(interaction.user, 'id', None)}"
+    )
     traceback.print_exception(type(original), original, original.__traceback__)
     await send_interaction_error(interaction, f"Ocurrio un error: `{original}`")
 
@@ -55,12 +61,12 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 async def sync_application_commands(client: commands.Bot):
     print(f"[DROPS] Sync version: {SYNC_VERSION} | GUILD_IDS={GUILD_IDS or 'global'}")
 
-    client.tree.clear_commands(guild=None)
-    client.tree.add_command(sorteo_group)
-    global_synced = await client.tree.sync()
-    global_fetched = await client.tree.fetch_commands()
-
     if GUILD_IDS:
+        client.tree.clear_commands(guild=None)
+        global_synced = await client.tree.sync()
+        global_fetched = await client.tree.fetch_commands()
+        client.tree.add_command(sorteo_group)
+
         synced_by_guild = {}
         for guild_id in GUILD_IDS:
             guild = discord.Object(id=guild_id)
@@ -79,10 +85,15 @@ async def sync_application_commands(client: commands.Bot):
         print(
             "[DROPS] Comandos de servidor sincronizados: "
             f"{synced_by_guild} | Globales: synced={len(global_synced)} "
-            f"discord={[command.name for command in global_fetched]}"
+            f"discord={[command.name for command in global_fetched]} | "
+            f"local_global={[command.name for command in client.tree.get_commands()]}"
         )
         return
 
+    client.tree.clear_commands(guild=None)
+    client.tree.add_command(sorteo_group)
+    global_synced = await client.tree.sync()
+    global_fetched = await client.tree.fetch_commands()
     print(
         "[DROPS] Comandos globales sincronizados: "
         f"synced={[command.name for command in global_synced]} "
