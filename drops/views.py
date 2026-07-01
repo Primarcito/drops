@@ -86,11 +86,13 @@ class ParticipantsButton(discord.ui.Button):
 
 
 class ParticipantsView(discord.ui.View):
-    def __init__(self, drop_id: int, page: int = 0, manager: bool = False):
+    def __init__(self, drop_id: int, page: int = 0, manager: bool = False, return_to_panel: bool = False):
         super().__init__(timeout=180)
         self.drop_id = int(drop_id)
         self.page = int(page)
         self.manager = bool(manager)
+        self.return_to_panel = bool(return_to_panel)
+        self.notice = None
         self.sync_children()
 
     def total(self) -> int:
@@ -106,9 +108,18 @@ class ParticipantsView(discord.ui.View):
             offset=self.page * PARTICIPANTS_PER_PAGE,
         )
 
-    def embed(self):
+    def embed(self, notice: str | None = None):
+        if notice is not None:
+            self.notice = notice
         drop = db.get_drop(self.drop_id)
-        return build_participants_embed(drop, self.entries(), self.page, self.total(), PARTICIPANTS_PER_PAGE)
+        return build_participants_embed(
+            drop,
+            self.entries(),
+            self.page,
+            self.total(),
+            PARTICIPANTS_PER_PAGE,
+            notice=self.notice,
+        )
 
     def sync_children(self):
         self.clear_items()
@@ -119,6 +130,8 @@ class ParticipantsView(discord.ui.View):
                 self.add_item(BlockParticipantSelect(self.drop_id, entries))
         self.add_item(PreviousPageButton())
         self.add_item(NextPageButton())
+        if self.return_to_panel:
+            self.add_item(BackToPanelButton(self.drop_id))
         self.update_button_states()
 
     def update_button_states(self):
@@ -130,9 +143,9 @@ class ParticipantsView(discord.ui.View):
             elif isinstance(item, NextPageButton):
                 item.disabled = self.page >= total_pages - 1
 
-    async def refresh(self, interaction: discord.Interaction):
+    async def refresh(self, interaction: discord.Interaction, notice: str | None = None):
         self.sync_children()
-        await interaction.response.edit_message(embed=self.embed(), view=self)
+        await interaction.response.edit_message(embed=self.embed(notice=notice), view=self)
 
 
 class PreviousPageButton(discord.ui.Button):
@@ -151,6 +164,21 @@ class NextPageButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         self.view.page += 1
         await self.view.refresh(interaction)
+
+
+class BackToPanelButton(discord.ui.Button):
+    def __init__(self, drop_id: int):
+        super().__init__(label="Panel", style=discord.ButtonStyle.secondary, emoji=emojis.DROPS)
+        self.drop_id = int(drop_id)
+
+    async def callback(self, interaction: discord.Interaction):
+        from drops.admin_views import DropAdminPanelView, build_admin_panel_embed
+
+        view = DropAdminPanelView(self.drop_id)
+        await interaction.response.edit_message(
+            embed=build_admin_panel_embed(self.drop_id, notice="Volviste al panel."),
+            view=view,
+        )
 
 
 class RemoveParticipantSelect(discord.ui.Select):
@@ -181,11 +209,10 @@ class RemoveParticipantSelect(discord.ui.Select):
         await refresh_public_from_client(interaction.client, self.drop_id)
 
         if not removed:
-            await interaction.response.send_message("Ese usuario ya no estaba participando.", ephemeral=True)
+            await self.view.refresh(interaction, notice="Ese usuario ya no estaba participando.")
             return
 
-        self.view.sync_children()
-        await interaction.response.edit_message(embed=self.view.embed(), view=self.view)
+        await self.view.refresh(interaction, notice="Participante quitado.")
 
 
 class BlockParticipantSelect(discord.ui.Select):
@@ -221,8 +248,7 @@ class BlockParticipantSelect(discord.ui.Select):
             reason="blocked_from_panel",
         )
         await refresh_public_from_client(interaction.client, self.drop_id)
-        self.view.sync_children()
-        await interaction.response.edit_message(embed=self.view.embed(), view=self.view)
+        await self.view.refresh(interaction, notice="Participante bloqueado.")
 
 
 async def refresh_source_message(interaction: discord.Interaction, drop_id: int):

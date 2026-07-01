@@ -69,7 +69,7 @@ def build_drop_embed(drop, participant_count: int, winners=None, image_filename:
     return embed
 
 
-def build_participants_embed(drop, entries, page: int, total: int, per_page: int) -> discord.Embed:
+def build_participants_embed(drop, entries, page: int, total: int, per_page: int, notice: str | None = None) -> discord.Embed:
     total_pages = max(1, (total + per_page - 1) // per_page)
     embed = discord.Embed(
         title=f"{emojis.TICKET} Participantes de Drop #{drop['id']}",
@@ -84,6 +84,9 @@ def build_participants_embed(drop, entries, page: int, total: int, per_page: int
         embed.description = "\n".join(lines)
     else:
         embed.description = "No hay participantes activos."
+
+    if notice:
+        embed.add_field(name="Ultima accion", value=notice[:1000], inline=False)
 
     embed.set_footer(text=f"Pagina {page + 1}/{total_pages} | Total: {total}")
     return embed

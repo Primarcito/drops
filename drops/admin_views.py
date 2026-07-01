@@ -10,14 +10,17 @@ from embeds import build_reroll_content
 from permissions import can_manage_drops
 
 
-def build_admin_panel_embed(drop_id: int) -> discord.Embed:
+def build_admin_panel_embed(drop_id: int, notice: str | None = None) -> discord.Embed:
     drop = db.get_drop(drop_id)
     if not drop:
-        return discord.Embed(
+        embed = discord.Embed(
             title="Drop no encontrado",
             description=f"No encontre el Drop #{drop_id}.",
             color=0xEB5757,
         )
+        if notice:
+            embed.add_field(name="Ultima accion", value=notice[:1000], inline=False)
+        return embed
 
     participants = db.count_entries(drop_id)
     winners = db.get_winners(drop_id)
@@ -38,6 +41,8 @@ def build_admin_panel_embed(drop_id: int) -> discord.Embed:
     if winners:
         winner_text = "\n".join(f"<@{row['user_id']}>" for row in winners[-10:])
         embed.add_field(name="Ganadores registrados", value=winner_text[:1000], inline=False)
+    if notice:
+        embed.add_field(name="Ultima accion", value=notice[:1000], inline=False)
     embed.set_footer(text="Panel privado de administracion")
     return embed
 
@@ -65,31 +70,33 @@ class DropAdminPanelView(discord.ui.View):
             elif getattr(child, "label", None) == "Reroll":
                 child.disabled = status != "ended"
 
-    async def refresh_panel(self, interaction: discord.Interaction):
+    async def refresh_panel(self, interaction: discord.Interaction, notice: str | None = None):
         self.sync_buttons()
-        await interaction.message.edit(embed=build_admin_panel_embed(self.drop_id), view=self)
+        embed = build_admin_panel_embed(self.drop_id, notice=notice)
+        if interaction.response.is_done():
+            await interaction.edit_original_response(embed=embed, view=self)
+        else:
+            await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(label="Participantes", style=discord.ButtonStyle.primary, emoji=emojis.TICKET, row=0)
     async def participants(self, interaction: discord.Interaction, button: discord.ui.Button):
-        view = ParticipantsView(self.drop_id, page=0, manager=True)
-        await interaction.response.send_message(embed=view.embed(), view=view, ephemeral=True)
+        view = ParticipantsView(self.drop_id, page=0, manager=True, return_to_panel=True)
+        await interaction.response.edit_message(embed=view.embed(notice="Vista de participantes abierta."), view=view)
 
     @discord.ui.button(label="Finalizar", style=discord.ButtonStyle.success, emoji=emojis.WINNER, row=0)
     async def finish(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         winners = await conclude_drop(interaction.client, self.drop_id, status="ended")
-        await self.refresh_panel(interaction)
         if winners:
-            await interaction.followup.send(f"Drop #{self.drop_id} finalizado.", ephemeral=True)
+            await self.refresh_panel(interaction, notice=f"Drop #{self.drop_id} finalizado.")
         else:
-            await interaction.followup.send(f"Drop #{self.drop_id} finalizado sin ganadores.", ephemeral=True)
+            await self.refresh_panel(interaction, notice=f"Drop #{self.drop_id} finalizado sin ganadores.")
 
     @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.danger, emoji=emojis.BLOCKED, row=0)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         await conclude_drop(interaction.client, self.drop_id, status="cancelled")
-        await self.refresh_panel(interaction)
-        await interaction.followup.send(f"Drop #{self.drop_id} cancelado.", ephemeral=True)
+        await self.refresh_panel(interaction, notice=f"Drop #{self.drop_id} cancelado.")
 
     @discord.ui.button(label="Foto", style=discord.ButtonStyle.secondary, emoji=emojis.PRIZE, row=1)
     async def photo(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -99,10 +106,10 @@ class DropAdminPanelView(discord.ui.View):
     async def reroll(self, interaction: discord.Interaction, button: discord.ui.Button):
         drop = db.get_drop(self.drop_id)
         if not drop or drop["status"] != "ended":
-            await interaction.response.send_message("Solo puedes hacer reroll de un Drop finalizado.", ephemeral=True)
+            await self.refresh_panel(interaction, notice="Solo puedes hacer reroll de un Drop finalizado.")
             return
 
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         previous_winners = db.get_winners(self.drop_id)
         exclude_ids = [row["user_id"] for row in previous_winners]
         next_index = db.latest_reroll_index(self.drop_id) + 1
@@ -113,7 +120,6 @@ class DropAdminPanelView(discord.ui.View):
             exclude_user_ids=exclude_ids,
         )
         await refresh_public_message(interaction.client, self.drop_id)
-        await self.refresh_panel(interaction)
 
         content = build_reroll_content(drop, winners)
         if content:
@@ -122,9 +128,9 @@ class DropAdminPanelView(discord.ui.View):
                 await channel.send(content)
             except (discord.HTTPException, ValueError, TypeError):
                 pass
-            await interaction.followup.send("Reroll publicado.", ephemeral=True)
+            await self.refresh_panel(interaction, notice="Reroll publicado.")
         else:
-            await interaction.followup.send("No quedan participantes disponibles para reroll.", ephemeral=True)
+            await self.refresh_panel(interaction, notice="No quedan participantes disponibles para reroll.")
 
 
 class DropPhotoModal(discord.ui.Modal):
