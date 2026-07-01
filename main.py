@@ -53,15 +53,21 @@ async def on_ready():
         bot.add_view(DropPublicView(int(drop["id"])))
 
     if not COMMANDS_SYNCED:
-        bot.tree.add_command(sorteo_group)
         if GUILD_ID:
             guild = discord.Object(id=GUILD_ID)
-            bot.tree.copy_global_to(guild=guild)
+            bot.tree.add_command(sorteo_group, guild=guild)
             synced = await bot.tree.sync(guild=guild)
+            bot.tree.clear_commands(guild=None)
+            global_synced = await bot.tree.sync()
+            print(
+                "[DROPS] Comandos de servidor sincronizados: "
+                f"{[command.name for command in synced]} | Globales limpiados: {len(global_synced)}"
+            )
         else:
+            bot.tree.add_command(sorteo_group)
             synced = await bot.tree.sync()
+            print(f"[DROPS] Comandos globales sincronizados: {[command.name for command in synced]}")
         COMMANDS_SYNCED = True
-        print(f"[DROPS] Comandos sincronizados: {[command.name for command in synced]}")
 
     if not WATCH_LOOP_STARTED:
         asyncio.create_task(drop_watch_loop(bot))
