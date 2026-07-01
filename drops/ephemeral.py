@@ -44,6 +44,13 @@ async def _delete_original_response(interaction: discord.Interaction):
         await interaction.delete_original_response()
 
 
+def _can_use_original_ephemeral_response(interaction: discord.Interaction) -> bool:
+    return interaction.type in {
+        discord.InteractionType.application_command,
+        discord.InteractionType.modal_submit,
+    }
+
+
 async def _forget_previous(key, previous):
     old_task = _EPHEMERAL_DELETE_TASKS.pop(key, None)
     if old_task:
@@ -78,7 +85,7 @@ async def upsert_ephemeral(
         try:
             await previous.edit(content=content, embed=embed, view=view)
             _schedule_delete(key, previous, delete_after)
-            if already_acknowledged:
+            if already_acknowledged and _can_use_original_ephemeral_response(interaction):
                 await _delete_original_response(interaction)
             return previous
         except (discord.HTTPException, discord.NotFound):
@@ -87,7 +94,7 @@ async def upsert_ephemeral(
     if not interaction.response.is_done():
         await interaction.response.send_message(content=content, embed=embed, view=view, ephemeral=True)
         message = await interaction.original_response()
-    else:
+    elif _can_use_original_ephemeral_response(interaction):
         try:
             message = await interaction.edit_original_response(content=content, embed=embed, view=view)
         except (discord.HTTPException, discord.NotFound):
@@ -98,6 +105,14 @@ async def upsert_ephemeral(
                 ephemeral=True,
                 wait=True,
             )
+    else:
+        message = await interaction.followup.send(
+            content=content,
+            embed=embed,
+            view=view,
+            ephemeral=True,
+            wait=True,
+        )
 
     _EPHEMERAL_MESSAGES[key] = message
     _schedule_delete(key, message, delete_after)
