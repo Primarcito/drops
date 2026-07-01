@@ -23,6 +23,7 @@ bot = commands.Bot(
 
 COMMANDS_SYNCED = False
 WATCH_LOOP_STARTED = False
+SYNC_VERSION = "sorteo-guild-sync-v2"
 
 
 async def send_interaction_error(interaction: discord.Interaction, message: str):
@@ -44,6 +45,46 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 bot.tree.on_error = on_app_command_error
 
 
+async def sync_application_commands():
+    print(f"[DROPS] Sync version: {SYNC_VERSION} | GUILD_IDS={GUILD_IDS or 'global'}")
+
+    if GUILD_IDS:
+        synced_by_guild = {}
+        for guild_id in GUILD_IDS:
+            guild = discord.Object(id=guild_id)
+            try:
+                bot.tree.clear_commands(guild=guild)
+                bot.tree.add_command(sorteo_group, guild=guild)
+                synced = await bot.tree.sync(guild=guild)
+                fetched = await bot.tree.fetch_commands(guild=guild)
+                synced_by_guild[guild_id] = {
+                    "synced": [command.name for command in synced],
+                    "discord": [command.name for command in fetched],
+                }
+            except discord.HTTPException as err:
+                synced_by_guild[guild_id] = {"error": f"{err.status}: {err.text}"}
+
+        bot.tree.clear_commands(guild=None)
+        global_synced = await bot.tree.sync()
+        global_fetched = await bot.tree.fetch_commands()
+        print(
+            "[DROPS] Comandos de servidor sincronizados: "
+            f"{synced_by_guild} | Globales: synced={len(global_synced)} "
+            f"discord={[command.name for command in global_fetched]}"
+        )
+        return
+
+    bot.tree.clear_commands(guild=None)
+    bot.tree.add_command(sorteo_group)
+    synced = await bot.tree.sync()
+    fetched = await bot.tree.fetch_commands()
+    print(
+        "[DROPS] Comandos globales sincronizados: "
+        f"synced={[command.name for command in synced]} "
+        f"discord={[command.name for command in fetched]}"
+    )
+
+
 @bot.event
 async def on_ready():
     global COMMANDS_SYNCED, WATCH_LOOP_STARTED
@@ -53,25 +94,7 @@ async def on_ready():
         bot.add_view(DropPublicView(int(drop["id"])))
 
     if not COMMANDS_SYNCED:
-        if GUILD_IDS:
-            synced_by_guild = {}
-            for guild_id in GUILD_IDS:
-                guild = discord.Object(id=guild_id)
-                bot.tree.clear_commands(guild=guild)
-                bot.tree.add_command(sorteo_group, guild=guild)
-                synced = await bot.tree.sync(guild=guild)
-                synced_by_guild[guild_id] = [command.name for command in synced]
-
-            bot.tree.clear_commands(guild=None)
-            global_synced = await bot.tree.sync()
-            print(
-                "[DROPS] Comandos de servidor sincronizados: "
-                f"{synced_by_guild} | Globales limpiados: {len(global_synced)}"
-            )
-        else:
-            bot.tree.add_command(sorteo_group)
-            synced = await bot.tree.sync()
-            print(f"[DROPS] Comandos globales sincronizados: {[command.name for command in synced]}")
+        await sync_application_commands()
         COMMANDS_SYNCED = True
 
     if not WATCH_LOOP_STARTED:
