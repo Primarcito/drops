@@ -4,10 +4,9 @@ import database as db
 import emojis
 from drops.ephemeral import upsert_ephemeral
 from drops.image_validation import validate_drop_image
-from drops.service import refresh_public_message, conclude_drop
+from drops.service import conclude_drop, reroll_drop
 from drops.service import update_public_drop_photo
 from drops.views import ParticipantsView
-from embeds import build_reroll_content
 from permissions import can_manage_drop_participants, can_use_drop_admin_panel
 
 
@@ -114,33 +113,9 @@ class DropAdminPanelView(discord.ui.View):
 
     @discord.ui.button(label="Reroll", style=discord.ButtonStyle.secondary, emoji=emojis.REROLL, row=1)
     async def reroll(self, interaction: discord.Interaction, button: discord.ui.Button):
-        drop = db.get_drop(self.drop_id)
-        if not drop or drop["status"] != "ended":
-            await self.refresh_panel(interaction, notice="Solo puedes hacer reroll de un Drop finalizado.")
-            return
-
         await interaction.response.defer()
-        previous_winners = db.get_winners(self.drop_id)
-        exclude_ids = [row["user_id"] for row in previous_winners]
-        next_index = db.latest_reroll_index(self.drop_id) + 1
-        winners = db.draw_winners(
-            self.drop_id,
-            drop["winner_count"],
-            reroll_index=next_index,
-            exclude_user_ids=exclude_ids,
-        )
-        await refresh_public_message(interaction.client, self.drop_id)
-
-        content = build_reroll_content(drop, winners)
-        if content:
-            try:
-                channel = interaction.client.get_channel(int(drop["channel_id"])) or await interaction.client.fetch_channel(int(drop["channel_id"]))
-                await channel.send(content)
-            except (discord.HTTPException, ValueError, TypeError):
-                pass
-            await self.refresh_panel(interaction, notice="Reroll publicado.")
-        else:
-            await self.refresh_panel(interaction, notice="No quedan participantes disponibles para reroll.")
+        _, notice = await reroll_drop(interaction.client, self.drop_id)
+        await self.refresh_panel(interaction, notice=notice)
 
 
 class DropPhotoModal(discord.ui.Modal):

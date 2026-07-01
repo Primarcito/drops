@@ -4,7 +4,7 @@ import discord
 
 import database as db
 from embed_assets import image_file_for_drop, image_filename_for_drop
-from embeds import build_drop_embed, build_winner_content
+from embeds import build_drop_embed, build_reroll_content, build_winner_content
 from drops.views import DropPublicView
 
 
@@ -85,3 +85,34 @@ async def conclude_drop(client: discord.Client, drop_id: int, status: str = "end
             pass
 
     return winners
+
+
+async def reroll_drop(client: discord.Client, drop_id: int):
+    drop = db.get_drop(drop_id)
+    if not drop:
+        return None, "No encontre ese Drop."
+    if drop["status"] != "ended":
+        return None, "Solo puedes hacer reroll de un Drop finalizado."
+
+    previous_winners = db.get_winners(drop_id)
+    exclude_ids = [row["user_id"] for row in previous_winners]
+    next_index = db.latest_reroll_index(drop_id) + 1
+    winners = db.draw_winners(
+        drop_id,
+        drop["winner_count"],
+        reroll_index=next_index,
+        exclude_user_ids=exclude_ids,
+    )
+    await refresh_public_message(client, drop_id)
+
+    content = build_reroll_content(drop, winners)
+    if not content:
+        return winners, "No quedan participantes disponibles para reroll."
+
+    try:
+        channel = client.get_channel(int(drop["channel_id"])) or await client.fetch_channel(int(drop["channel_id"]))
+        await channel.send(content)
+    except (discord.HTTPException, ValueError, TypeError):
+        return winners, "Reroll guardado, pero no pude publicar el mensaje."
+
+    return winners, "Reroll publicado."

@@ -8,6 +8,7 @@ from embed_assets import banner_file, banner_filename
 from drops.admin_views import DropAdminPanelView, build_admin_panel_embed
 from drops.ephemeral import upsert_ephemeral
 from drops.log_views import DropLogsView
+from drops.service import reroll_drop
 from drops.timeparse import parse_duration
 from drops.views import DropPublicView
 from embeds import build_drop_embed
@@ -155,5 +156,30 @@ async def drop_logs(interaction: discord.Interaction):
         scope="drop:logs",
         embed=view.embed(),
         view=view,
+        prefer_current_response=True,
+    )
+
+
+@sorteo_group.command(name="reroll", description="Vuelve a elegir ganador(es) de un sorteo finalizado")
+@app_commands.describe(drop_id="ID del sorteo finalizado")
+async def reroll_drop_command(interaction: discord.Interaction, drop_id: int):
+    print(
+        "[DROPS] /sorteo reroll recibido: "
+        f"drop_id={drop_id} guild_id={getattr(interaction.guild, 'id', None)} "
+        f"user_id={getattr(interaction.user, 'id', None)}"
+    )
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    if not await require_panel_role(interaction):
+        return
+    if not interaction.guild:
+        await send_private(interaction, "Este comando solo funciona dentro de un servidor.")
+        return
+
+    _, notice = await reroll_drop(interaction.client, int(drop_id))
+    await upsert_ephemeral(
+        interaction,
+        scope=f"drop:{int(drop_id)}:panel",
+        content=notice,
         prefer_current_response=True,
     )
