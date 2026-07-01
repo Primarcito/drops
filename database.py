@@ -87,9 +87,6 @@ def init_db():
 
             CREATE INDEX IF NOT EXISTS idx_drop_winners_drop
                 ON drop_winners (drop_id, id);
-
-            CREATE INDEX IF NOT EXISTS idx_drops_history
-                ON drops (guild_id, hidden_from_logs, status, id);
             """
         )
         c = conn.cursor()
@@ -99,6 +96,12 @@ def init_db():
             c.execute("ALTER TABLE drops ADD COLUMN prize_image_filename TEXT")
         if "hidden_from_logs" not in drop_cols:
             c.execute("ALTER TABLE drops ADD COLUMN hidden_from_logs INTEGER NOT NULL DEFAULT 0")
+        c.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_drops_history
+                ON drops (guild_id, hidden_from_logs, status, id)
+            """
+        )
         conn.commit()
     print(f"[DROPS] Base de datos lista: {os.path.abspath(DB_PATH)}")
 
