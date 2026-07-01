@@ -16,7 +16,7 @@ from drops.views import DropPublicView
 intents = discord.Intents.default()
 
 
-SYNC_VERSION = "sorteo-multi-guild-copy-v6"
+SYNC_VERSION = "sorteo-guild-only-v7"
 
 
 class DropsBot(commands.Bot):
@@ -60,12 +60,11 @@ async def sync_application_commands(client: commands.Bot):
         f"application_id={client.application_id} | GUILD_IDS={GUILD_IDS or 'global'}"
     )
 
-    client.tree.clear_commands(guild=None)
-    client.tree.add_command(sorteo_group)
-
     if GUILD_IDS:
+        client.tree.clear_commands(guild=None)
         global_synced = await client.tree.sync()
         global_fetched = await client.tree.fetch_commands()
+        client.tree.add_command(sorteo_group)
 
         synced_by_guild = {}
         for guild_id in GUILD_IDS:
@@ -90,6 +89,8 @@ async def sync_application_commands(client: commands.Bot):
         )
         return
 
+    client.tree.clear_commands(guild=None)
+    client.tree.add_command(sorteo_group)
     global_synced = await client.tree.sync()
     global_fetched = await client.tree.fetch_commands()
     print(
