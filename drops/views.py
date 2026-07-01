@@ -8,7 +8,7 @@ import database as db
 import emojis
 from embed_assets import image_filename_for_drop
 from embeds import build_drop_embed, build_participants_embed
-from permissions import can_manage_drops
+from permissions import can_manage_drop_participants
 
 
 PARTICIPANTS_PER_PAGE = 10
@@ -131,7 +131,7 @@ class ParticipantsButton(discord.ui.Button):
         if not drop:
             await interaction.response.send_message("No encontre ese Drop.", ephemeral=True)
             return
-        view = ParticipantsView(self.drop_id, page=0, manager=can_manage_drops(interaction))
+        view = ParticipantsView(self.drop_id, page=0, manager=can_manage_drop_participants(interaction))
         key = notice_key(interaction, self.drop_id)
         previous = _PARTICIPANTS_MESSAGES.get(key)
         if previous:
@@ -266,7 +266,7 @@ class RemoveParticipantSelect(discord.ui.Select):
         self.drop_id = int(drop_id)
 
     async def callback(self, interaction: discord.Interaction):
-        if not can_manage_drops(interaction):
+        if not can_manage_drop_participants(interaction):
             await interaction.response.send_message("No tienes permiso para quitar participantes.", ephemeral=True)
             return
 
@@ -301,7 +301,7 @@ class BlockParticipantSelect(discord.ui.Select):
         self.drop_id = int(drop_id)
 
     async def callback(self, interaction: discord.Interaction):
-        if not can_manage_drops(interaction):
+        if not can_manage_drop_participants(interaction):
             await interaction.response.send_message("No tienes permiso para bloquear participantes.", ephemeral=True)
             return
 

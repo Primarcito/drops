@@ -7,7 +7,7 @@ from drops.service import refresh_public_message, conclude_drop
 from drops.service import update_public_drop_photo
 from drops.views import ParticipantsView
 from embeds import build_reroll_content
-from permissions import can_manage_drops
+from permissions import can_manage_drop_participants, can_manage_drops
 
 
 def build_admin_panel_embed(drop_id: int, notice: str | None = None) -> discord.Embed:
@@ -80,7 +80,12 @@ class DropAdminPanelView(discord.ui.View):
 
     @discord.ui.button(label="Participantes", style=discord.ButtonStyle.primary, emoji=emojis.TICKET, row=0)
     async def participants(self, interaction: discord.Interaction, button: discord.ui.Button):
-        view = ParticipantsView(self.drop_id, page=0, manager=True, return_to_panel=True)
+        view = ParticipantsView(
+            self.drop_id,
+            page=0,
+            manager=can_manage_drop_participants(interaction),
+            return_to_panel=True,
+        )
         await interaction.response.edit_message(embed=view.embed(notice="Vista de participantes abierta."), view=view)
 
     @discord.ui.button(label="Finalizar", style=discord.ButtonStyle.success, emoji=emojis.WINNER, row=0)
