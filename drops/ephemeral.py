@@ -39,6 +39,11 @@ async def _acknowledge_without_new_message(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
 
+async def _delete_original_response(interaction: discord.Interaction):
+    with suppress(discord.HTTPException, discord.NotFound):
+        await interaction.delete_original_response()
+
+
 async def upsert_ephemeral(
     interaction: discord.Interaction,
     *,
@@ -52,10 +57,14 @@ async def upsert_ephemeral(
     previous = _EPHEMERAL_MESSAGES.get(key)
 
     if previous:
-        await _acknowledge_without_new_message(interaction)
+        already_acknowledged = interaction.response.is_done()
+        if not already_acknowledged:
+            await _acknowledge_without_new_message(interaction)
         try:
             await previous.edit(content=content, embed=embed, view=view)
             _schedule_delete(key, previous, delete_after)
+            if already_acknowledged:
+                await _delete_original_response(interaction)
             return previous
         except (discord.HTTPException, discord.NotFound):
             _EPHEMERAL_MESSAGES.pop(key, None)
@@ -64,13 +73,16 @@ async def upsert_ephemeral(
         await interaction.response.send_message(content=content, embed=embed, view=view, ephemeral=True)
         message = await interaction.original_response()
     else:
-        message = await interaction.followup.send(
-            content=content,
-            embed=embed,
-            view=view,
-            ephemeral=True,
-            wait=True,
-        )
+        try:
+            message = await interaction.edit_original_response(content=content, embed=embed, view=view)
+        except (discord.HTTPException, discord.NotFound):
+            message = await interaction.followup.send(
+                content=content,
+                embed=embed,
+                view=view,
+                ephemeral=True,
+                wait=True,
+            )
 
     _EPHEMERAL_MESSAGES[key] = message
     _schedule_delete(key, message, delete_after)
