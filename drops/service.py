@@ -3,7 +3,7 @@ import io
 import discord
 
 import database as db
-from embed_assets import banner_file, image_file_for_drop, image_filename_for_drop, prize_image_filename
+from embed_assets import image_file_for_drop, image_filename_for_drop
 from embeds import build_drop_embed, build_winner_content
 from drops.views import DropPublicView
 
@@ -31,32 +31,6 @@ async def refresh_public_message(client: discord.Client, drop_id: int):
     if file:
         edit_kwargs["attachments"] = [file]
     await message.edit(**edit_kwargs)
-
-
-async def show_ending_soon_message(client: discord.Client, drop_id: int):
-    drop = db.get_drop(drop_id)
-    if not drop or drop["status"] != "active" or not drop["message_id"]:
-        return
-    if prize_image_filename(drop):
-        return
-
-    file = banner_file("ending")
-    if not file:
-        return
-
-    try:
-        channel = client.get_channel(int(drop["channel_id"])) or await client.fetch_channel(int(drop["channel_id"]))
-        message = await channel.fetch_message(int(drop["message_id"]))
-    except (discord.HTTPException, ValueError, TypeError):
-        return
-
-    participant_count = db.count_entries(drop_id)
-    winners = db.get_winners(drop_id)
-    await message.edit(
-        embed=build_drop_embed(drop, participant_count, winners, image_filename=file.filename),
-        view=DropPublicView(drop_id),
-        attachments=[file],
-    )
 
 
 async def update_public_drop_photo(

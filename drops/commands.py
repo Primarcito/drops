@@ -87,11 +87,11 @@ async def create_drop(
         normalize_requirements(requisitos),
     )
     drop = db.get_drop(drop_id)
-    file = banner_file("active")
+    file = banner_file("active", drop=drop)
     embed = build_drop_embed(
         drop,
         participant_count=0,
-        image_filename=file.filename if file else banner_filename("active"),
+        image_filename=file.filename if file else banner_filename("active", drop=drop),
     )
     if file:
         message = await interaction.followup.send(embed=embed, view=DropPublicView(drop_id), file=file, wait=True)

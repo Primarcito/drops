@@ -8,7 +8,6 @@ Bot de Discord para sorteos dinamicos.
 - Los participantes se guardan en SQLite, no en el embed.
 - Staff puede ver participantes en paginas, quitar personas y bloquearlas del Drop.
 - El bot puede cerrar Drops automaticamente cuando termina el tiempo.
-- Cuando faltan pocos segundos, el mensaje publico cambia a un GIF de cierre si el Drop usa el banner visual del bot.
 
 ## Primer arranque
 

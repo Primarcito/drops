@@ -267,7 +267,7 @@ async def refresh_source_message(interaction: discord.Interaction, drop_id: int)
     participant_count = db.count_entries(drop_id)
     winners = db.get_winners(drop_id)
     try:
-        file = banner_file("active") if drop["status"] == "active" and not prize_image_filename(drop) else None
+        file = banner_file("active", drop=drop) if drop["status"] == "active" and not prize_image_filename(drop) else None
         edit_kwargs = dict(
             embed=build_drop_embed(
                 drop,
@@ -293,7 +293,7 @@ async def refresh_public_from_client(client: discord.Client, drop_id: int):
         message = await channel.fetch_message(int(drop["message_id"]))
         participant_count = db.count_entries(drop_id)
         winners = db.get_winners(drop_id)
-        file = banner_file("active") if drop["status"] == "active" and not prize_image_filename(drop) else None
+        file = banner_file("active", drop=drop) if drop["status"] == "active" and not prize_image_filename(drop) else None
         edit_kwargs = dict(
             embed=build_drop_embed(
                 drop,
