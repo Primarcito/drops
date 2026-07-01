@@ -6,17 +6,16 @@ from discord import app_commands
 from discord.ext import commands
 
 import database as db
-from config import APPLICATION_ID, DISCORD_TOKEN, GUILD_IDS
+from config import DISCORD_TOKEN, GUILD_IDS
 from drops.commands import sorteo_group
 from drops.scheduler import drop_watch_loop
 from drops.views import DropPublicView
 
 
 intents = discord.Intents.default()
-intents.members = True
 
 
-SYNC_VERSION = "sorteo-defer-first-v4"
+SYNC_VERSION = "sorteo-token-app-id-v5"
 
 
 class DropsBot(commands.Bot):
@@ -32,7 +31,6 @@ class DropsBot(commands.Bot):
 bot = DropsBot(
     command_prefix="!",
     intents=intents,
-    application_id=APPLICATION_ID or None,
 )
 
 
@@ -59,7 +57,10 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 
 
 async def sync_application_commands(client: commands.Bot):
-    print(f"[DROPS] Sync version: {SYNC_VERSION} | GUILD_IDS={GUILD_IDS or 'global'}")
+    print(
+        f"[DROPS] Sync version: {SYNC_VERSION} | "
+        f"application_id={client.application_id} | GUILD_IDS={GUILD_IDS or 'global'}"
+    )
 
     if GUILD_IDS:
         client.tree.clear_commands(guild=None)

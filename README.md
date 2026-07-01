@@ -30,7 +30,6 @@ python main.py
 Variables recomendadas:
 
 - `TOKEN` o `DISCORD_TOKEN`: token del bot de Discord.
-- `APPLICATION_ID`: ID de la aplicacion de Discord.
 - `GUILD_IDS`: IDs de los servidores donde se sincronizan rapido los comandos, separados por coma. Ejemplo: `111111111111111111,222222222222222222`.
 - `GUILD_ID`: opcional y compatible con la version anterior si solo usas un servidor. Si defines `GUILD_IDS`, esa lista tiene prioridad.
 - `DATA_DIR`: opcional. Si usas un volumen persistente en Railway, apuntalo al path del volumen. Si no, SQLite puede reiniciarse en redeploys.

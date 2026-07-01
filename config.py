@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN") or os.getenv("TOKEN", "")
-APPLICATION_ID = int(os.getenv("APPLICATION_ID", "0") or 0)
 
 
 def parse_id_list(value: str) -> list[int]:
