@@ -8,6 +8,7 @@ from discord.ext import commands
 import database as db
 from config import DISCORD_TOKEN, GUILD_IDS
 from drops.commands import sorteo_group
+from drops.ephemeral import upsert_ephemeral
 from drops.scheduler import drop_watch_loop
 from drops.views import DropPublicView
 
@@ -36,10 +37,7 @@ bot = DropsBot(
 
 async def send_interaction_error(interaction: discord.Interaction, message: str):
     try:
-        if interaction.response.is_done():
-            await interaction.followup.send(message, ephemeral=True)
-        else:
-            await interaction.response.send_message(message, ephemeral=True)
+        await upsert_ephemeral(interaction, scope="global:error", content=message)
     except discord.HTTPException as err:
         print(f"[DROPS] No pude responder error de interaccion: {err}")
 

@@ -1,11 +1,10 @@
 import math
-import asyncio
-from contextlib import suppress
 
 import discord
 
 import database as db
 import emojis
+from drops.ephemeral import upsert_ephemeral
 from embed_assets import image_filename_for_drop
 from embeds import build_drop_embed, build_participants_embed
 from permissions import can_manage_drop_participants, can_use_drop_admin_panel
@@ -13,52 +12,15 @@ from permissions import can_manage_drop_participants, can_use_drop_admin_panel
 
 PARTICIPANTS_PER_PAGE = 10
 BUTTON_NOTICE_DELETE_AFTER = 10
-_BUTTON_NOTICE_MESSAGES = {}
-_BUTTON_NOTICE_TASKS = {}
-
-
-def notice_key(interaction: discord.Interaction, drop_id: int):
-    return (int(interaction.user.id), int(drop_id))
-
-
-async def delete_button_notice_later(key, message):
-    await asyncio.sleep(BUTTON_NOTICE_DELETE_AFTER)
-    if _BUTTON_NOTICE_MESSAGES.get(key) is not message:
-        return
-    with suppress(discord.HTTPException, discord.NotFound):
-        await message.delete()
-    _BUTTON_NOTICE_MESSAGES.pop(key, None)
-    _BUTTON_NOTICE_TASKS.pop(key, None)
-
-
-def schedule_button_notice_delete(key, message):
-    old_task = _BUTTON_NOTICE_TASKS.pop(key, None)
-    if old_task:
-        old_task.cancel()
-    _BUTTON_NOTICE_TASKS[key] = asyncio.create_task(delete_button_notice_later(key, message))
 
 
 async def send_button_notice(interaction: discord.Interaction, drop_id: int, message: str):
-    key = notice_key(interaction, drop_id)
-    previous = _BUTTON_NOTICE_MESSAGES.get(key)
-    if previous:
-        if not interaction.response.is_done():
-            await interaction.response.defer(ephemeral=True)
-        try:
-            await previous.edit(content=message, embed=None, view=None)
-            schedule_button_notice_delete(key, previous)
-            return
-        except (discord.HTTPException, discord.NotFound):
-            _BUTTON_NOTICE_MESSAGES.pop(key, None)
-
-    if not interaction.response.is_done():
-        await interaction.response.send_message(message, ephemeral=True)
-        notice = await interaction.original_response()
-    else:
-        notice = await interaction.followup.send(message, ephemeral=True, wait=True)
-
-    _BUTTON_NOTICE_MESSAGES[key] = notice
-    schedule_button_notice_delete(key, notice)
+    await upsert_ephemeral(
+        interaction,
+        scope=f"drop:{int(drop_id)}:button-notice",
+        content=message,
+        delete_after=BUTTON_NOTICE_DELETE_AFTER,
+    )
 
 
 class DropPublicView(discord.ui.View):
@@ -128,10 +90,19 @@ class ParticipantsButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         drop = db.get_drop(self.drop_id)
         if not drop:
-            await interaction.response.send_message("No encontre ese Drop.", ephemeral=True)
+            await upsert_ephemeral(
+                interaction,
+                scope=f"drop:{self.drop_id}:participants",
+                content="No encontre ese Drop.",
+            )
             return
         view = ParticipantsView(self.drop_id, page=0, manager=can_manage_drop_participants(interaction))
-        await interaction.response.send_message(embed=view.embed(), view=view, ephemeral=True)
+        await upsert_ephemeral(
+            interaction,
+            scope=f"drop:{self.drop_id}:participants",
+            embed=view.embed(),
+            view=view,
+        )
 
 
 class ParticipantsView(discord.ui.View):
@@ -223,7 +194,11 @@ class BackToPanelButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         if not can_use_drop_admin_panel(interaction):
-            await interaction.response.send_message("No tienes permiso para abrir el panel de Drops.", ephemeral=True)
+            await upsert_ephemeral(
+                interaction,
+                scope=f"drop:{self.drop_id}:panel",
+                content="No tienes permiso para abrir el panel de Drops.",
+            )
             return
 
         from drops.admin_views import DropAdminPanelView, build_admin_panel_embed
@@ -255,7 +230,11 @@ class RemoveParticipantSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if not can_manage_drop_participants(interaction):
-            await interaction.response.send_message("No tienes permiso para quitar participantes.", ephemeral=True)
+            await upsert_ephemeral(
+                interaction,
+                scope=f"drop:{self.drop_id}:participants",
+                content="No tienes permiso para quitar participantes.",
+            )
             return
 
         user_id = self.values[0]
@@ -290,7 +269,11 @@ class BlockParticipantSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if not can_manage_drop_participants(interaction):
-            await interaction.response.send_message("No tienes permiso para bloquear participantes.", ephemeral=True)
+            await upsert_ephemeral(
+                interaction,
+                scope=f"drop:{self.drop_id}:participants",
+                content="No tienes permiso para bloquear participantes.",
+            )
             return
 
         user_id = self.values[0]

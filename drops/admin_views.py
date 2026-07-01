@@ -2,6 +2,7 @@ import discord
 
 import database as db
 import emojis
+from drops.ephemeral import upsert_ephemeral
 from drops.image_validation import validate_drop_image
 from drops.service import refresh_public_message, conclude_drop
 from drops.service import update_public_drop_photo
@@ -56,7 +57,11 @@ class DropAdminPanelView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if can_use_drop_admin_panel(interaction):
             return True
-        await interaction.response.send_message("No tienes permiso para administrar Drops.", ephemeral=True)
+        await upsert_ephemeral(
+            interaction,
+            scope=f"drop:{self.drop_id}:panel",
+            content="No tienes permiso para administrar Drops.",
+        )
         return False
 
     def sync_buttons(self):
@@ -154,13 +159,17 @@ class DropPhotoModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         attachments = self.upload.values
         if not attachments:
-            await interaction.response.send_message("Sube una imagen para actualizar la foto.", ephemeral=True)
+            await upsert_ephemeral(
+                interaction,
+                scope=f"drop:{self.drop_id}:photo",
+                content="Sube una imagen para actualizar la foto.",
+            )
             return
 
         attachment = attachments[0]
         ok, extension, image_error = validate_drop_image(attachment)
         if not ok:
-            await interaction.response.send_message(image_error, ephemeral=True)
+            await upsert_ephemeral(interaction, scope=f"drop:{self.drop_id}:photo", content=image_error)
             return
 
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -175,11 +184,23 @@ class DropPhotoModal(discord.ui.Modal):
                 actor_id=interaction.user.id,
             )
         except discord.HTTPException as err:
-            await interaction.followup.send(f"No pude subir esa imagen: `{err}`", ephemeral=True)
+            await upsert_ephemeral(
+                interaction,
+                scope=f"drop:{self.drop_id}:photo",
+                content=f"No pude subir esa imagen: `{err}`",
+            )
             return
 
         if not updated:
-            await interaction.followup.send("No pude encontrar el mensaje publico de ese Drop.", ephemeral=True)
+            await upsert_ephemeral(
+                interaction,
+                scope=f"drop:{self.drop_id}:photo",
+                content="No pude encontrar el mensaje publico de ese Drop.",
+            )
             return
 
-        await interaction.followup.send(f"Foto actualizada para Drop #{self.drop_id}.", ephemeral=True)
+        await upsert_ephemeral(
+            interaction,
+            scope=f"drop:{self.drop_id}:photo",
+            content=f"Foto actualizada para Drop #{self.drop_id}.",
+        )

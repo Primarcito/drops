@@ -6,6 +6,7 @@ from discord import app_commands
 import database as db
 from embed_assets import banner_file, banner_filename
 from drops.admin_views import DropAdminPanelView, build_admin_panel_embed
+from drops.ephemeral import upsert_ephemeral
 from drops.timeparse import parse_duration
 from drops.views import DropPublicView
 from embeds import build_drop_embed
@@ -16,10 +17,7 @@ sorteo_group = app_commands.Group(name="sorteo", description="Sistema de sorteos
 
 
 async def send_private(interaction: discord.Interaction, message: str):
-    if interaction.response.is_done():
-        await interaction.followup.send(message, ephemeral=True)
-    else:
-        await interaction.response.send_message(message, ephemeral=True)
+    await upsert_ephemeral(interaction, scope="command:private", content=message)
 
 
 async def require_manager(interaction: discord.Interaction) -> bool:
@@ -75,13 +73,13 @@ async def create_drop(
     if not await require_manager(interaction):
         return
     if not interaction.guild or not interaction.channel:
-        await interaction.followup.send("Este comando solo funciona dentro de un servidor.", ephemeral=True)
+        await send_private(interaction, "Este comando solo funciona dentro de un servidor.")
         return
 
     try:
         ends_at = datetime.now(timezone.utc) + parse_duration(duracion)
     except ValueError as err:
-        await interaction.followup.send(str(err), ephemeral=True)
+        await send_private(interaction, str(err))
         return
 
     drop_id = db.create_drop(
@@ -123,11 +121,12 @@ async def admin_panel(interaction: discord.Interaction, drop_id: int):
 
     drop, error = active_drop_or_error(drop_id)
     if error:
-        await interaction.followup.send(error, ephemeral=True)
+        await upsert_ephemeral(interaction, scope=f"drop:{int(drop_id)}:panel", content=error)
         return
 
-    await interaction.followup.send(
+    await upsert_ephemeral(
+        interaction,
+        scope=f"drop:{int(drop_id)}:panel",
         embed=build_admin_panel_embed(drop_id),
         view=DropAdminPanelView(drop_id),
-        ephemeral=True,
     )
