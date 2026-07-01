@@ -8,14 +8,13 @@ import database as db
 import emojis
 from embed_assets import image_filename_for_drop
 from embeds import build_drop_embed, build_participants_embed
-from permissions import can_manage_drop_participants
+from permissions import can_manage_drop_participants, can_use_drop_admin_panel
 
 
 PARTICIPANTS_PER_PAGE = 10
 BUTTON_NOTICE_DELETE_AFTER = 10
 _BUTTON_NOTICE_MESSAGES = {}
 _BUTTON_NOTICE_TASKS = {}
-_PARTICIPANTS_MESSAGES = {}
 
 
 def notice_key(interaction: discord.Interaction, drop_id: int):
@@ -132,23 +131,7 @@ class ParticipantsButton(discord.ui.Button):
             await interaction.response.send_message("No encontre ese Drop.", ephemeral=True)
             return
         view = ParticipantsView(self.drop_id, page=0, manager=can_manage_drop_participants(interaction))
-        key = notice_key(interaction, self.drop_id)
-        previous = _PARTICIPANTS_MESSAGES.get(key)
-        if previous:
-            if not interaction.response.is_done():
-                await interaction.response.defer(ephemeral=True)
-            try:
-                await previous.edit(embed=view.embed(), view=view, content=None)
-                return
-            except (discord.HTTPException, discord.NotFound):
-                _PARTICIPANTS_MESSAGES.pop(key, None)
-
-        if not interaction.response.is_done():
-            await interaction.response.send_message(embed=view.embed(), view=view, ephemeral=True)
-            message = await interaction.original_response()
-        else:
-            message = await interaction.followup.send(embed=view.embed(), view=view, ephemeral=True, wait=True)
-        _PARTICIPANTS_MESSAGES[key] = message
+        await interaction.response.send_message(embed=view.embed(), view=view, ephemeral=True)
 
 
 class ParticipantsView(discord.ui.View):
@@ -238,6 +221,10 @@ class BackToPanelButton(discord.ui.Button):
         self.drop_id = int(drop_id)
 
     async def callback(self, interaction: discord.Interaction):
+        if not can_use_drop_admin_panel(interaction):
+            await interaction.response.send_message("No tienes permiso para abrir el panel de Drops.", ephemeral=True)
+            return
+
         from drops.admin_views import DropAdminPanelView, build_admin_panel_embed
 
         view = DropAdminPanelView(self.drop_id)

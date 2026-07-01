@@ -7,7 +7,7 @@ from drops.service import refresh_public_message, conclude_drop
 from drops.service import update_public_drop_photo
 from drops.views import ParticipantsView
 from embeds import build_reroll_content
-from permissions import can_manage_drop_participants, can_manage_drops
+from permissions import can_manage_drop_participants, can_use_drop_admin_panel
 
 
 def build_admin_panel_embed(drop_id: int, notice: str | None = None) -> discord.Embed:
@@ -54,7 +54,7 @@ class DropAdminPanelView(discord.ui.View):
         self.sync_buttons()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if can_manage_drops(interaction):
+        if can_use_drop_admin_panel(interaction):
             return True
         await interaction.response.send_message("No tienes permiso para administrar Drops.", ephemeral=True)
         return False

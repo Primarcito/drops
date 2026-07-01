@@ -9,7 +9,7 @@ from drops.admin_views import DropAdminPanelView, build_admin_panel_embed
 from drops.timeparse import parse_duration
 from drops.views import DropPublicView
 from embeds import build_drop_embed
-from permissions import can_manage_drops
+from permissions import can_manage_drops, can_use_drop_admin_panel
 
 
 sorteo_group = app_commands.Group(name="sorteo", description="Sistema de sorteos dinamicos")
@@ -26,6 +26,13 @@ async def require_manager(interaction: discord.Interaction) -> bool:
     if can_manage_drops(interaction):
         return True
     await send_private(interaction, "No tienes permiso para administrar Drops.")
+    return False
+
+
+async def require_panel_role(interaction: discord.Interaction) -> bool:
+    if can_use_drop_admin_panel(interaction):
+        return True
+    await send_private(interaction, "No tienes permiso para abrir el panel de Drops.")
     return False
 
 
@@ -111,7 +118,7 @@ async def admin_panel(interaction: discord.Interaction, drop_id: int):
     )
     await interaction.response.defer(ephemeral=True, thinking=True)
 
-    if not await require_manager(interaction):
+    if not await require_panel_role(interaction):
         return
 
     drop, error = active_drop_or_error(drop_id)

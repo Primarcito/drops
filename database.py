@@ -206,8 +206,8 @@ def add_entry(drop_id: int, user_id, username: str):
         return "blocked"
 
     with get_conn() as conn:
-        drop = conn.execute("SELECT status FROM drops WHERE id=?", (int(drop_id),)).fetchone()
-        if not drop or drop["status"] != "active":
+        drop = conn.execute("SELECT status, ends_at FROM drops WHERE id=?", (int(drop_id),)).fetchone()
+        if not drop or drop["status"] != "active" or drop["ends_at"] <= utcnow_text():
             return "closed"
 
         existing = conn.execute(

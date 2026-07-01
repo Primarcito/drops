@@ -33,8 +33,9 @@ Variables recomendadas:
 - `GUILD_IDS`: IDs de los servidores donde se sincronizan rapido los comandos, separados por coma. Ejemplo: `111111111111111111,222222222222222222`.
 - `GUILD_ID`: opcional y compatible con la version anterior si solo usas un servidor. Si defines `GUILD_IDS`, esa lista tiene prioridad.
 - `DATA_DIR`: opcional. Si usas un volumen persistente en Railway, apuntalo al path del volumen. Ejemplo: `/data`.
+- `DROP_CHECK_INTERVAL_SECONDS`: opcional. Cada cuantos segundos revisa cierres automaticos. Por defecto es `1`.
 - `EMOJI_DROPS_*_ID`: opcional. IDs de los emojis del Developer Portal. Si no existen, el bot usa emojis unicode.
-- `DROP_ADMIN_ROLE_IDS`: opcional. IDs de roles que pueden administrar Drops, separados por coma. Por defecto, los controles para quitar/bloquear participantes solo aparecen para `1473624624964173952`, `1336825861466488975` y `983987481961717782`.
+- `DROP_ADMIN_ROLE_IDS`: opcional. IDs de roles que pueden administrar Drops, separados por coma. Por defecto, `/sorteo panel` y los controles para quitar/bloquear participantes solo aparecen para `1473624624964173952`, `1336825861466488975` y `983987481961717782`.
 - `DROP_ADMIN_ROLE_NAMES`: opcional. Nombres de roles que pueden administrar Drops, separados por coma.
 
 ## Persistencia

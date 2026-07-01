@@ -44,3 +44,7 @@ def can_manage_drops(interaction: discord.Interaction) -> bool:
 
 def can_manage_drop_participants(interaction: discord.Interaction) -> bool:
     return has_drop_admin_role(interaction.user)
+
+
+def can_use_drop_admin_panel(interaction: discord.Interaction) -> bool:
+    return has_drop_admin_role(interaction.user)
