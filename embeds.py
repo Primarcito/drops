@@ -85,6 +85,17 @@ def build_result_text(drop, winners) -> str:
     return f"{emojis.BLOCKED} Drop #{drop['id']} finalizado sin participantes suficientes."
 
 
+def build_winner_content(drop, winners) -> str | None:
+    if not winners:
+        return None
+
+    mentions = ", ".join(f"<@{row['user_id']}>" for row in winners)
+    if len(winners) == 1:
+        return f"{emojis.WINNER} Felicidades {mentions}, ganaste **{drop['prize']}**!"
+
+    return f"{emojis.WINNER} Felicidades {mentions}, ganaron **{drop['prize']}**!"
+
+
 def build_winner_embed(drop, winners) -> discord.Embed:
     if winners:
         description = "\n".join(f"{emojis.WINNER} <@{row['user_id']}>" for row in winners)
