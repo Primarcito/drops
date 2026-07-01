@@ -44,6 +44,16 @@ async def _delete_original_response(interaction: discord.Interaction):
         await interaction.delete_original_response()
 
 
+async def _forget_previous(key, previous):
+    old_task = _EPHEMERAL_DELETE_TASKS.pop(key, None)
+    if old_task:
+        old_task.cancel()
+    _EPHEMERAL_MESSAGES.pop(key, None)
+    if previous:
+        with suppress(discord.HTTPException, discord.NotFound):
+            await previous.delete()
+
+
 async def upsert_ephemeral(
     interaction: discord.Interaction,
     *,
@@ -52,9 +62,14 @@ async def upsert_ephemeral(
     embed: discord.Embed | None = None,
     view: discord.ui.View | None = None,
     delete_after: int | None = None,
+    prefer_current_response: bool = False,
 ):
     key = ephemeral_key(interaction, scope)
     previous = _EPHEMERAL_MESSAGES.get(key)
+
+    if prefer_current_response:
+        await _forget_previous(key, previous)
+        previous = None
 
     if previous:
         already_acknowledged = interaction.response.is_done()

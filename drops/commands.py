@@ -130,6 +130,7 @@ async def admin_panel(interaction: discord.Interaction, drop_id: int):
         scope=f"drop:{int(drop_id)}:panel",
         embed=build_admin_panel_embed(drop_id),
         view=DropAdminPanelView(drop_id),
+        prefer_current_response=True,
     )
 
 
@@ -154,4 +155,5 @@ async def drop_logs(interaction: discord.Interaction):
         scope="drop:logs",
         embed=view.embed(),
         view=view,
+        prefer_current_response=True,
     )
