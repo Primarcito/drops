@@ -55,6 +55,8 @@ async def create_drop(
         await interaction.response.send_message(str(err), ephemeral=True)
         return
 
+    await interaction.response.defer(thinking=True)
+
     drop_id = db.create_drop(
         interaction.guild.id,
         interaction.channel.id,
@@ -72,11 +74,11 @@ async def create_drop(
         image_filename=file.filename if file else banner_filename("active"),
     )
     if file:
-        await interaction.response.send_message(embed=embed, view=DropPublicView(drop_id), file=file)
+        message = await interaction.followup.send(embed=embed, view=DropPublicView(drop_id), file=file, wait=True)
     else:
-        await interaction.response.send_message(embed=embed, view=DropPublicView(drop_id))
-    message = await interaction.original_response()
+        message = await interaction.followup.send(embed=embed, view=DropPublicView(drop_id), wait=True)
     db.set_drop_message(drop_id, message.id)
+    print(f"[DROPS] Sorteo creado: drop_id={drop_id} message_id={message.id} guild_id={interaction.guild.id}")
 
 
 @sorteo_group.command(name="panel", description="Abre el panel privado de administracion de un sorteo")
@@ -90,7 +92,8 @@ async def admin_panel(interaction: discord.Interaction, drop_id: int):
         await interaction.response.send_message(error, ephemeral=True)
         return
 
-    await interaction.response.send_message(
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    await interaction.followup.send(
         embed=build_admin_panel_embed(drop_id),
         view=DropAdminPanelView(drop_id),
         ephemeral=True,
