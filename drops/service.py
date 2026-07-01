@@ -1,7 +1,7 @@
 import discord
 
 import database as db
-from embeds import build_drop_embed, build_result_text
+from embeds import build_drop_embed, build_winner_embed
 from drops.views import DropPublicView
 
 
@@ -36,9 +36,8 @@ async def conclude_drop(client: discord.Client, drop_id: int, status: str = "end
     if status == "ended" and drop["channel_id"]:
         try:
             channel = client.get_channel(int(drop["channel_id"])) or await client.fetch_channel(int(drop["channel_id"]))
-            await channel.send(build_result_text(db.get_drop(drop_id), winners))
+            await channel.send(embed=build_winner_embed(db.get_drop(drop_id), winners))
         except (discord.HTTPException, ValueError, TypeError):
             pass
 
     return winners
-

@@ -33,6 +33,7 @@ Variables recomendadas:
 - `APPLICATION_ID`: ID de la aplicacion de Discord.
 - `GUILD_ID`: ID del servidor donde se sincronizan rapido los comandos.
 - `DATA_DIR`: opcional. Si usas un volumen persistente en Railway, apuntalo al path del volumen. Si no, SQLite puede reiniciarse en redeploys.
+- `EMOJI_DROPS_*_ID`: opcional. IDs de los emojis del Developer Portal. Si no existen, el bot usa emojis unicode.
 
 ## Comandos principales
 

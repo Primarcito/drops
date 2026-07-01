@@ -3,6 +3,7 @@ import math
 import discord
 
 import database as db
+import emojis
 from embeds import build_drop_embed, build_participants_embed
 from permissions import can_manage_drops
 
@@ -24,6 +25,7 @@ class JoinDropButton(discord.ui.Button):
         super().__init__(
             label="Entrar",
             style=discord.ButtonStyle.success,
+            emoji=emojis.JOIN,
             custom_id=f"drops:join:{int(drop_id)}",
         )
         self.drop_id = int(drop_id)
@@ -51,6 +53,7 @@ class LeaveDropButton(discord.ui.Button):
         super().__init__(
             label="Salir",
             style=discord.ButtonStyle.secondary,
+            emoji=emojis.BLOCKED,
             custom_id=f"drops:leave:{int(drop_id)}",
         )
         self.drop_id = int(drop_id)
@@ -67,6 +70,7 @@ class ParticipantsButton(discord.ui.Button):
         super().__init__(
             label="Participantes",
             style=discord.ButtonStyle.primary,
+            emoji=emojis.TICKET,
             custom_id=f"drops:participants:{int(drop_id)}",
         )
         self.drop_id = int(drop_id)
