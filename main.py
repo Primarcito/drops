@@ -15,15 +15,25 @@ from drops.views import DropPublicView
 intents = discord.Intents.default()
 intents.members = True
 
-bot = commands.Bot(
+
+SYNC_VERSION = "sorteo-setup-hook-v3"
+
+
+class DropsBot(commands.Bot):
+    async def setup_hook(self):
+        db.init_db()
+        for drop in db.get_active_drops():
+            self.add_view(DropPublicView(int(drop["id"])))
+
+        await sync_application_commands(self)
+        asyncio.create_task(drop_watch_loop(self))
+
+
+bot = DropsBot(
     command_prefix="!",
     intents=intents,
     application_id=APPLICATION_ID or None,
 )
-
-COMMANDS_SYNCED = False
-WATCH_LOOP_STARTED = False
-SYNC_VERSION = "sorteo-guild-sync-v2"
 
 
 async def send_interaction_error(interaction: discord.Interaction, message: str):
@@ -42,21 +52,23 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     await send_interaction_error(interaction, f"Ocurrio un error: `{original}`")
 
 
-bot.tree.on_error = on_app_command_error
-
-
-async def sync_application_commands():
+async def sync_application_commands(client: commands.Bot):
     print(f"[DROPS] Sync version: {SYNC_VERSION} | GUILD_IDS={GUILD_IDS or 'global'}")
+
+    client.tree.clear_commands(guild=None)
+    client.tree.add_command(sorteo_group)
+    global_synced = await client.tree.sync()
+    global_fetched = await client.tree.fetch_commands()
 
     if GUILD_IDS:
         synced_by_guild = {}
         for guild_id in GUILD_IDS:
             guild = discord.Object(id=guild_id)
             try:
-                bot.tree.clear_commands(guild=guild)
-                bot.tree.add_command(sorteo_group, guild=guild)
-                synced = await bot.tree.sync(guild=guild)
-                fetched = await bot.tree.fetch_commands(guild=guild)
+                client.tree.clear_commands(guild=guild)
+                client.tree.add_command(sorteo_group, guild=guild)
+                synced = await client.tree.sync(guild=guild)
+                fetched = await client.tree.fetch_commands(guild=guild)
                 synced_by_guild[guild_id] = {
                     "synced": [command.name for command in synced],
                     "discord": [command.name for command in fetched],
@@ -64,9 +76,6 @@ async def sync_application_commands():
             except discord.HTTPException as err:
                 synced_by_guild[guild_id] = {"error": f"{err.status}: {err.text}"}
 
-        bot.tree.clear_commands(guild=None)
-        global_synced = await bot.tree.sync()
-        global_fetched = await bot.tree.fetch_commands()
         print(
             "[DROPS] Comandos de servidor sincronizados: "
             f"{synced_by_guild} | Globales: synced={len(global_synced)} "
@@ -74,33 +83,18 @@ async def sync_application_commands():
         )
         return
 
-    bot.tree.clear_commands(guild=None)
-    bot.tree.add_command(sorteo_group)
-    synced = await bot.tree.sync()
-    fetched = await bot.tree.fetch_commands()
     print(
         "[DROPS] Comandos globales sincronizados: "
-        f"synced={[command.name for command in synced]} "
-        f"discord={[command.name for command in fetched]}"
+        f"synced={[command.name for command in global_synced]} "
+        f"discord={[command.name for command in global_fetched]}"
     )
+
+
+bot.tree.on_error = on_app_command_error
 
 
 @bot.event
 async def on_ready():
-    global COMMANDS_SYNCED, WATCH_LOOP_STARTED
-
-    db.init_db()
-    for drop in db.get_active_drops():
-        bot.add_view(DropPublicView(int(drop["id"])))
-
-    if not COMMANDS_SYNCED:
-        await sync_application_commands()
-        COMMANDS_SYNCED = True
-
-    if not WATCH_LOOP_STARTED:
-        asyncio.create_task(drop_watch_loop(bot))
-        WATCH_LOOP_STARTED = True
-
     print(f"[DROPS] Bot listo: {bot.user}")
 
 
