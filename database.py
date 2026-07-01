@@ -160,6 +160,18 @@ def get_due_drops():
         ).fetchall()
 
 
+def get_ending_soon_drops(until_text: str):
+    now = utcnow_text()
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT * FROM drops
+            WHERE status='active' AND ends_at > ? AND ends_at <= ?
+            """,
+            (now, until_text),
+        ).fetchall()
+
+
 def count_entries(drop_id: int) -> int:
     with get_conn() as conn:
         row = conn.execute(

@@ -4,7 +4,7 @@ import discord
 
 import database as db
 import emojis
-from embed_assets import image_filename_for_drop
+from embed_assets import banner_file, image_filename_for_drop, prize_image_filename
 from embeds import build_drop_embed, build_participants_embed
 from permissions import can_manage_drops
 
@@ -258,15 +258,19 @@ async def refresh_source_message(interaction: discord.Interaction, drop_id: int)
     participant_count = db.count_entries(drop_id)
     winners = db.get_winners(drop_id)
     try:
-        await interaction.message.edit(
+        file = banner_file("active") if drop["status"] == "active" and not prize_image_filename(drop) else None
+        edit_kwargs = dict(
             embed=build_drop_embed(
                 drop,
                 participant_count,
                 winners,
-                image_filename=image_filename_for_drop(drop, winners),
+                image_filename=file.filename if file else image_filename_for_drop(drop, winners),
             ),
             view=DropPublicView(drop_id) if drop["status"] == "active" else None,
         )
+        if file:
+            edit_kwargs["attachments"] = [file]
+        await interaction.message.edit(**edit_kwargs)
     except discord.HTTPException:
         pass
 
@@ -280,14 +284,18 @@ async def refresh_public_from_client(client: discord.Client, drop_id: int):
         message = await channel.fetch_message(int(drop["message_id"]))
         participant_count = db.count_entries(drop_id)
         winners = db.get_winners(drop_id)
-        await message.edit(
+        file = banner_file("active") if drop["status"] == "active" and not prize_image_filename(drop) else None
+        edit_kwargs = dict(
             embed=build_drop_embed(
                 drop,
                 participant_count,
                 winners,
-                image_filename=image_filename_for_drop(drop, winners),
+                image_filename=file.filename if file else image_filename_for_drop(drop, winners),
             ),
             view=DropPublicView(drop_id) if drop["status"] == "active" else None,
         )
+        if file:
+            edit_kwargs["attachments"] = [file]
+        await message.edit(**edit_kwargs)
     except (discord.HTTPException, ValueError, TypeError):
         pass

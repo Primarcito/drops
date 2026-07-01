@@ -7,6 +7,7 @@ ASSET_DIR = Path(__file__).resolve().parent / "assets" / "discord" / "embeds"
 
 BANNERS = {
     "active": "drops-active.png",
+    "ending": "drops-ending.gif",
     "winner": "drops-winner.png",
     "ended": "drops-ended.png",
 }
